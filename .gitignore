@@ -1,0 +1,18 @@
+# data and results folder
+data/**
+results/**
+
+# compile and config files
+**/__pycache__/
+**/.vscode/
+**/.ipynb_checkpoints/
+
+# gitignore structure
+**/dataset/
+
+# pdfs are compiled files - therefore terrible for tracking in git
+**/*.pdf
+
+# log directories - p.ex. for tensorboard logs
+**/logs/
+
