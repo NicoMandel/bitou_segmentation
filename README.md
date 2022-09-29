@@ -49,6 +49,7 @@ there are currently two environments available, both working with RTX GPUs (Cuda
     3. `conda install -c conda-forge lightning-flash`
 
 ### Testing
+#### Environment
 Running the following code inside the conda environment will test validity. If `torch.cuda.get_device_name(0)` does not return with a warning and `torch.cuda.get_arch_list()` contains `smi_86` things should work.
 Expected output:
 ```
@@ -64,6 +65,9 @@ True
 >>> torch.cuda.get_device_name(0)
 'NVIDIA GeForce RTX 3060 Laptop GPU'
 ```
+
+#### Flash Models
+Inside the python torch environment run the two blocks, coming from [here](https://lightning-flash.readthedocs.io/en/latest/general/backbones.html#backbones-heads)
 
 
 ## TODOs
