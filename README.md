@@ -50,21 +50,7 @@ there are currently two environments available, both working with RTX GPUs (Cuda
 
 ### Testing
 #### Environment
-Running the following code inside the conda environment will test validity. If `torch.cuda.get_device_name(0)` does not return with a warning and `torch.cuda.get_arch_list()` contains `smi_86` things should work.
-Expected output:
-```
->>> import torch
->>> torch.cuda.is_available()
-True
->>> torch.version.cuda
-'11.3'
->>> torch.__version__
-'1.12.1'
->>> torch.cuda.get_arch_list()
-['sm_37', 'sm_50', 'sm_60', 'sm_61', 'sm_70', 'sm_75', 'sm_80', 'sm_86', 'compute_37']
->>> torch.cuda.get_device_name(0)
-'NVIDIA GeForce RTX 3060 Laptop GPU'
-```
+Running `pytest .` inside the `tests` directory will ensure the packages are configured correctly
 
 #### Flash Models
 Inside the python torch environment run the two blocks, coming from [here](https://lightning-flash.readthedocs.io/en/latest/general/backbones.html#backbones-heads)
