@@ -30,7 +30,10 @@ bitou_segmentation
 |
 └─── csupl - importable code. Should be installed using pip - see [below](###-Installing-src-files-in-csupl)
 |       |    \__init__.py 
-
+|
+└─── tests - tests to check imports and proper function. can be run using `pytest .` inside the directory
+|       |   test_imports.py - checks if import and GPU functions are available
+|       |   test_segmentation.py - checks if the segmentation models are available
 ```
 
 
@@ -51,6 +54,7 @@ there are currently two environments available, both working with RTX GPUs (Cuda
 ### Testing
 #### Environment
 Running `pytest .` inside the `tests` directory will ensure the packages are configured correctly
+
 
 #### Flash Models
 Inside the python torch environment run the two blocks, coming from [here](https://lightning-flash.readthedocs.io/en/latest/general/backbones.html#backbones-heads)
