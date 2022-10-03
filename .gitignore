@@ -15,4 +15,4 @@ results/**
 
 # log directories - p.ex. for tensorboard logs
 **/logs/
-
+**/lightning_logs/

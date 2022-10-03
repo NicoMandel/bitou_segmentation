@@ -25,7 +25,7 @@ bitou_segmentation
 |       |   
 |
 └─── scripts - executable scripts that are running things
-|       |   
+|       |   base_task.py - file that is analogous to flash's segmentation task - base file to start from
 |       |   
 |
 └─── csupl - importable code. Should be installed using pip - see [below](###-Installing-src-files-in-csupl)
@@ -55,9 +55,7 @@ there are currently two environments available, both working with RTX GPUs (Cuda
 #### Environment
 Running `pytest .` inside the `tests` directory will ensure the packages are configured correctly
 
-
-#### Flash Models
-Inside the python torch environment run the two blocks, coming from [here](https://lightning-flash.readthedocs.io/en/latest/general/backbones.html#backbones-heads)
-
+#### Flash functionality
+running `scripts/base_task.py` runs the [default Semantic Segmentation task](https://lightning-flash.readthedocs.io/en/latest/reference/semantic_segmentation.html)
 
 ## TODOs
