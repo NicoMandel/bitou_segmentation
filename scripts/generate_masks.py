@@ -18,7 +18,8 @@ def parse_args():
     """
     fdir = os.path.abspath(os.path.dirname(__file__))
     def_input = os.path.join(fdir, "..", "data", "bitou_test")
-    def_output = os.path.join(fdir, "..", "data", "bitou_test")
+    def_output = os.path.join(os.path.dirname(def_input), "bitou_test_masks") 
+    # def_output = os.path.join(fdir, "..", "data", "bitou_test")
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", help="Directory to generate masks from", type=str, default=def_input)
     parser.add_argument("-o", "--output", help="Directory where masks should be output to", type=str, default=def_output)
@@ -55,12 +56,24 @@ def generate_mask_image(polygon_coord : list, orig_img : Image.Image) -> Image.I
     return mask_img
 
 
+def write_masks(polygon_coord: dict, img_list : list, input_dir : Path, mask_dir : Path, f_ext : string):
+    """
+        function to load the images and write the mask
+    """
+
+    for k, poly_coord in polygon_coord.items():
+        orig_path = input_dir / ".".join([k,f_ext])
+        orig_img = Image.open(orig_path)
+        mask_im = generate_mask_image(poly_coord, orig_img)
+        mask_path = mask_dir / ".".join([("_".join([k, "mask"])), f_ext])
+        mask_im.save(mask_path, "JPEG")
+
 if __name__=="__main__":
     args  = parse_args()
 
     img_directory = Path(args["input"])
-    mask_directory = args["output"]
-    f_ext = args["file-extension"]
+    mask_directory = Path(args["output"])
+    f_ext = args["file_extension"]
 
     img_list = list([x.stem for x in img_directory.glob("*."+f_ext)])
     if args["config"] is None:
@@ -73,13 +86,12 @@ if __name__=="__main__":
 
     json_metadata = json_dict["_via_img_metadata"]
     polygon_dict = get_polygon_coordinates(json_metadata)
+    write_masks(polygon_dict, img_list, img_directory, mask_directory, f_ext)
     print("Test Done")
 
     """
     TODO: continue here:
-        1. load the json
-        2. find the polygon
-        3. create an empty image of zeros - of the size of the OG image
-        4. draw the polygon of ones there
-        5. overlay for checks
+        1. overlay for checks
+        2. check against existence of files - with imglist
+        3. check against 
     """

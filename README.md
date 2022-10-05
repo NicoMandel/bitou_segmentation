@@ -26,7 +26,7 @@ bitou_segmentation
 |
 └─── scripts - executable scripts that are running things
 |       |   base_task.py - file that is analogous to flash's segmentation task - base file to start from
-|       |   
+|       |   generate_masks.py - file that generates binary masks from a folder
 |
 └─── csupl - importable code. Should be installed using pip - see [below](###-Installing-src-files-in-csupl)
 |       |    \__init__.py 
@@ -58,4 +58,6 @@ Running `pytest .` inside the `tests` directory will ensure the packages are con
 #### Flash functionality
 running `scripts/base_task.py` runs the [default Semantic Segmentation task](https://lightning-flash.readthedocs.io/en/latest/reference/semantic_segmentation.html)
 
-## TODOs
+## Generating masks from Json
+`.json` files should be created using VGG Image Annotation tool.
+`generate_masks.py`[scripts/generate_masks.py] needs a .json file with the image annotations, an input directory for the original files and an output directory for the masks.
