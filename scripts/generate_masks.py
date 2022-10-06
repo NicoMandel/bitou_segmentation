@@ -65,7 +65,7 @@ def write_masks(polygon_coord: dict, img_list : list, input_dir : Path, mask_dir
         orig_path = input_dir / ".".join([k,f_ext])
         orig_img = Image.open(orig_path)
         mask_im = generate_mask_image(poly_coord, orig_img)
-        mask_path = mask_dir / ".".join([("_".join([k, "mask"])), f_ext])
+        mask_path = mask_dir / ".".join([k, f_ext])
         mask_im.save(mask_path, "JPEG")
 
 if __name__=="__main__":
