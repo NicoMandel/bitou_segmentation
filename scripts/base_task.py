@@ -2,24 +2,29 @@
 
 import torch
 
+from pytorch_lightning import seed_everything
+
 import flash
-from flash.core.data.utils import download_data
+# from flash.core.data.utils import download_data
 from flash.image import SemanticSegmentation, SemanticSegmentationData
 
 # 1. Create the DataModule
 # The data was generated with the  CARLA self-driving simulator as part of the Kaggle Lyft Udacity Challenge.
 # More info here: https://www.kaggle.com/kumaresanmanickavelu/lyft-udacity-challenge
-download_data(
-    "https://github.com/ongchinkiat/LyftPerceptionChallenge/releases/download/v0.1/carla-capture-20180513A.zip",
-    "./data",
-)
+# download_data(
+#     "https://github.com/ongchinkiat/LyftPerceptionChallenge/releases/download/v0.1/carla-capture-20180513A.zip",
+#     "./data",
+# )
+
+# fixing the seed for reproducibility
+seed_everything(42)
 
 datamodule = SemanticSegmentationData.from_folders(
-    train_folder="data/CameraRGB",
-    train_target_folder="data/CameraSeg",
+    train_folder="data/bitou_test",
+    train_target_folder="data/bitou_test_masks",
     val_split=0.1,
     transform_kwargs=dict(image_size=(256, 256)),
-    num_classes=21,
+    num_classes=2,
     batch_size=4,
 )
 
@@ -37,9 +42,9 @@ trainer.finetune(model, datamodule=datamodule, strategy="freeze")
 # 4. Segment a few images!
 datamodule = SemanticSegmentationData.from_files(
     predict_files=[
-        "data/CameraRGB/F61-1.png",
-        "data/CameraRGB/F62-1.png",
-        "data/CameraRGB/F63-1.png",
+        "data/bitou_test/DJI_20220404135614_0001.JPG",
+        "data/bitou_test/DJI_20220404140510_0015.JPG",
+        "data/bitou_test/DJI_20220404140802_0022.JPG"
     ],
     batch_size=3,
 )
@@ -47,4 +52,4 @@ predictions = trainer.predict(model, datamodule=datamodule)
 print(predictions)
 
 # 5. Save the model!
-trainer.save_checkpoint("semantic_segmentation_model.pt")
+# trainer.save_checkpoint("semantic_segmentation_model.pt")

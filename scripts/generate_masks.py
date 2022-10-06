@@ -50,9 +50,9 @@ def generate_mask_image(polygon_coord : list, orig_img : Image.Image) -> Image.I
         Function to generate a polygon for a single image and return the image
     """
     imsize = orig_img.size
-    mask_img = Image.new('L', imsize)              # Image modes from Pillow: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-modes
+    mask_img = Image.new("RGB", imsize)              # Image modes from Pillow: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-modes
     d = ImageDraw.Draw(mask_img)
-    d.polygon(polygon_coord, fill=255)
+    d.polygon(polygon_coord, fill=(1,0,0))
     return mask_img
 
 
@@ -94,4 +94,6 @@ if __name__=="__main__":
         1. overlay for checks
         2. check against existence of files - with imglist
         3. check against 
+     !  4. via has a filelist inside ->  "_via_image_id_list": 
+        5. do the file writing as tqdm -> for progress bar
     """
