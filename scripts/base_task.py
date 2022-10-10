@@ -8,6 +8,8 @@ import flash
 # from flash.core.data.utils import download_data
 from flash.image import SemanticSegmentation, SemanticSegmentationData
 
+from PIL import Image
+
 # 1. Create the DataModule
 # The data was generated with the  CARLA self-driving simulator as part of the Kaggle Lyft Udacity Challenge.
 # More info here: https://www.kaggle.com/kumaresanmanickavelu/lyft-udacity-challenge
@@ -40,16 +42,24 @@ trainer = flash.Trainer(max_epochs=3, gpus=torch.cuda.device_count())
 trainer.finetune(model, datamodule=datamodule, strategy="freeze")
 
 # 4. Segment a few images!
-datamodule = SemanticSegmentationData.from_files(
-    predict_files=[
+predict_files = [
         "data/bitou_test/DJI_20220404135614_0001.JPG",
         "data/bitou_test/DJI_20220404140510_0015.JPG",
         "data/bitou_test/DJI_20220404140802_0022.JPG"
-    ],
+    ]
+datamodule = SemanticSegmentationData.from_files(
+    predict_files=predict_files,
     batch_size=3,
 )
 predictions = trainer.predict(model, datamodule=datamodule)
 print(predictions)
 
 # 5. Save the model!
-# trainer.save_checkpoint("semantic_segmentation_model.pt")
+trainer.save_checkpoint("results/tmp/semantic_segmentation_model.pt")
+
+# 6. Show the images
+for imf in predict_files:
+    im = Image.open(imf)
+    im.show()
+
+    # show the predictions

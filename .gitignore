@@ -18,4 +18,4 @@ results/**
 **/lightning_logs/
 
 # tmp base folder - for temporary files written to test some things
-/tmp/
+**/tmp/
