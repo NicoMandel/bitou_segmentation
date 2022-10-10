@@ -24,10 +24,11 @@ seed_everything(42)
 datamodule = SemanticSegmentationData.from_folders(
     train_folder="data/bitou_test",
     train_target_folder="data/bitou_test_masks",
-    val_split=0.1,
+    val_split=0.3,
     transform_kwargs=dict(image_size=(256, 256)),
     num_classes=2,
-    batch_size=4,
+    batch_size=12,
+    num_workers=12
 )
 
 # 2. Build the task
@@ -38,7 +39,7 @@ model = SemanticSegmentation(
 )
 
 # 3. Create the trainer and finetune the model
-trainer = flash.Trainer(max_epochs=3, gpus=torch.cuda.device_count())
+trainer = flash.Trainer(max_epochs=10, gpus=torch.cuda.device_count())
 trainer.finetune(model, datamodule=datamodule, strategy="freeze")
 
 # 4. Segment a few images!
@@ -55,11 +56,4 @@ predictions = trainer.predict(model, datamodule=datamodule)
 print(predictions)
 
 # 5. Save the model!
-trainer.save_checkpoint("results/tmp/semantic_segmentation_model.pt")
-
-# 6. Show the images
-for imf in predict_files:
-    im = Image.open(imf)
-    im.show()
-
-    # show the predictions
+trainer.save_checkpoint("results/tmp/segmentation_model_overfit.pt")

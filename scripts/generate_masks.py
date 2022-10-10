@@ -1,7 +1,12 @@
 
 """
 Script to generate binary masks from json labels as exported by VGG Image Annotator
-
+    TODO: continue here:
+        1. overlay for checks
+        2. check against existence of files - with imglist
+        3. check against 
+     !  4. via has a filelist inside ->  "_via_image_id_list": 
+        5. do the file writing as tqdm -> for progress bar
 """
 
 import json
@@ -88,12 +93,3 @@ if __name__=="__main__":
     polygon_dict = get_polygon_coordinates(json_metadata)
     write_masks(polygon_dict, img_list, img_directory, mask_directory, f_ext)
     print("Test Done")
-
-    """
-    TODO: continue here:
-        1. overlay for checks
-        2. check against existence of files - with imglist
-        3. check against 
-     !  4. via has a filelist inside ->  "_via_image_id_list": 
-        5. do the file writing as tqdm -> for progress bar
-    """
