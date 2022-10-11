@@ -5,7 +5,7 @@
 """
 
 import torch
-from model import Resnet18Skip, DeepLab, Unet, getSize, getBatchSize
+from src.csupl.model import Resnet18Skip, DeepLab, Unet, getSize, getBatchSize
 # loss fct
 from torch.nn import CrossEntropyLoss
 
@@ -128,7 +128,7 @@ if __name__=="__main__":
     ])
 
     # lightning - updated way to load the data - with a datamodule. Much simpler
-    datamodule = AlbumentationsDataModule(
+    datamodule = BitouDataModule(
         root_dir, "Test", num_classes,
         test_transforms=test_aug, train_transforms=train_aug,
         batch_size=batch_size, num_workers=num_workers
