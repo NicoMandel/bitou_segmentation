@@ -11,13 +11,13 @@ from torch.nn import CrossEntropyLoss
 
 # lightning
 import pytorch_lightning as pl
-from dataloader import AlbumentationsDataModule, SegDataModule
-from task import SegmentationTask
+from src.csupl.dataloader import BitouDataModule
+from src.csupl.task import SegmentationTask
 
 # Own imports
 import os.path
-from utils import onnx_export
-from train_utils import LogImages
+from src.csupl.utils import onnx_export
+from src.csupl.train_utils import LogImages
 from datetime import date, datetime
 
 # import transforms as tfs

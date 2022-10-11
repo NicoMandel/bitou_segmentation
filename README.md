@@ -3,7 +3,8 @@
 Project folder for the bitou bush segmentation project.
 This project is following tips and guidelines from the [Good Research Code Handbook](https://goodresearch.dev/setup.html).
 
-The main package that is used in this project is [Pytorch lightning flash](https://lightning-flash.readthedocs.io/en/latest/installation.html) and its associated package [lightning bolts](https://www.pytorchlightning.ai/bolts)
+## Albumentations branch
+this branch uses the albumentations package and self-configured tasks and masks
 
 
 ## Folder Structure
@@ -39,7 +40,8 @@ bitou_segmentation
 
 ## Installing src files in csupl
 run `pip install -e .` from base folder. Installs current directory with editable configuration. Can now be imported anywhere
-
+Further information on installs can be found in [this good blog](https://godatadriven.com/blog/a-practical-guide-to-using-setup-py/).
+Potential further moves could include moving to [setuptools](https://godatadriven.com/blog/a-practical-guide-to-setuptools-and-pyproject-toml/)
 alternative is defining a .ENV file for vscode
 
 ## Environment files

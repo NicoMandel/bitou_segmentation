@@ -5,7 +5,6 @@ from torch import optim, nn
 import pytorch_lightning as pl
 import torchmetrics
 
-import transforms as tfs
 
 class SegmentationTask(pl.LightningModule):
     """
