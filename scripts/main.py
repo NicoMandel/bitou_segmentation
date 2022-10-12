@@ -5,19 +5,19 @@
 """
 
 import torch
-from src.csupl.model import Resnet18Skip, DeepLab, Unet, getSize, getBatchSize
+from csupl.model import Resnet18Skip, DeepLab, Unet, getSize, getBatchSize
 # loss fct
 from torch.nn import CrossEntropyLoss
 
 # lightning
 import pytorch_lightning as pl
-from src.csupl.dataloader import BitouDataModule
-from src.csupl.task import SegmentationTask
+from csupl.dataloader import BitouDataModule
+from csupl.task import SegmentationTask
 
 # Own imports
 import os.path
-from src.csupl.utils import onnx_export
-from src.csupl.train_utils import LogImages
+from csupl.utils import onnx_export
+from csupl.train_utils import LogImages
 from datetime import date, datetime
 
 # import transforms as tfs

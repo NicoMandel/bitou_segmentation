@@ -6,9 +6,6 @@ import warnings
 def test_torch():
     import torch
 
-def test_flash():
-    import flash 
-
 def test_cuda():
     import torch
     assert torch.cuda.is_available()
