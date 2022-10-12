@@ -18,14 +18,14 @@ import pytorch_lightning as pl
 class BitouDataset(VisionDataset):
 
     def __init__(self, root: str, num_classes: int, transforms: Optional[Callable] = None,
-                img_folder : str ="bitou_test", mask_folder: str ="_masks", f_ext : str = ".jpg") -> None:
+                img_folder : str ="bitou_test", mask_folder: str ="_masks", f_ext : str = ".JPG") -> None:
         # directories
         super().__init__(root, transforms)
         self.img_dir = Path(self.root) / img_folder
         self.mask_dir = Path(self.root) / (img_folder + mask_folder)
         
         # lists
-        self.img_list = list([x.stem for x in self.img_dir.glob(".".join(["*", f_ext]))])
+        self.img_list = list([x.stem for x in self.img_dir.glob("*"+f_ext)])
 
         # number of classes
         self.num_classes = num_classes
@@ -38,8 +38,9 @@ class BitouDataset(VisionDataset):
         if torch.torch.is_tensor(idx):
             idx = idx.tolist()
         
-        img_name = self.img_dir / (".".join([self.img_list[idx], self.f_ext]))
-        mask_name = self.mask_dir / (".".join([self.img_list[idx], self.f_ext]))
+        fname = self.img_list[idx] + self.f_ext
+        img_name = self.img_dir / fname
+        mask_name = self.mask_dir / fname
 
         # ! may change to PIL image dataloading here
         img = cv2.imread(str(img_name))

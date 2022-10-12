@@ -17,6 +17,7 @@ def test_dataset():
 
 def test_datamodule():
     dm = dataloader.BitouDataModule(root = root, test_dir = "test")
+    dm.prepare_data()
     assert dm
     assert len(dm.train_dataset) > 0
     assert len(dm.val_dataset) > 0
