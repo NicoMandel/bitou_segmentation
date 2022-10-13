@@ -18,11 +18,11 @@ import pytorch_lightning as pl
 class BitouDataset(VisionDataset):
 
     def __init__(self, root: str, num_classes: int, transforms: Optional[Callable] = None,
-                img_folder : str ="bitou_test", mask_folder: str ="_masks", f_ext : str = ".JPG") -> None:
+                img_folder : str ="bitou_test", mask_folder: str ="bitou_test_masks", f_ext : str = ".JPG") -> None:
         # directories
         super().__init__(root, transforms)
         self.img_dir = Path(self.root) / img_folder
-        self.mask_dir = Path(self.root) / (img_folder + mask_folder)
+        self.mask_dir = Path(self.root) / mask_folder
         
         # lists
         self.img_list = list([x.stem for x in self.img_dir.glob("*"+f_ext)])
@@ -42,13 +42,13 @@ class BitouDataset(VisionDataset):
         img_name = self.img_dir / fname
         mask_name = self.mask_dir / fname
 
-        # ! may change to PIL image dataloading here
-        img = cv2.imread(str(img_name))
+        img = cv2.imread(str(img_name), cv2.IMREAD_UNCHANGED)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        # ! potentially need to preprocess mask here - depending on the loading part
-        mask = np.array(Image.open(mask_name), cv2.IMREAD_UNCHANGED)
+        mask = cv2.imread(str(mask_name), cv2.IMREAD_UNCHANGED)
+        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2RGB)
 
+        # ! Albumentations specific transform syntax!
         if self.transform is not None:
             transformed = self.transforms(image=img, mask=mask)
             img = transformed["image"]
@@ -58,9 +58,13 @@ class BitouDataset(VisionDataset):
 
 class BitouDataModule(pl.LightningDataModule):
 
-    def __init__(self, root : str, test_dir : str, num_workers : int = 1, batch_size : int =4, val_percentage : float = 0.25,
-                img_folder : str = "bitou_test", mask_folder : str = "_masks",
-                train_transforms: Optional[Callable] = None, test_transforms: Optional[Callable] = None) -> None:
+    def __init__(self, root : str,
+                test_dir : str,
+                num_workers : int = 1, batch_size : int =4, val_percentage : float = 0.25,
+                img_folder : str = "bitou_test", mask_folder : str = "bitou_test_masks",
+                train_transforms: Optional[Callable] = None,
+                test_transforms: Optional[Callable] = None
+                ) -> None:
         super().__init__()
         
         # folder structure
