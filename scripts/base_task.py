@@ -27,8 +27,8 @@ datamodule = SemanticSegmentationData.from_folders(
     val_split=0.3,
     transform_kwargs=dict(image_size=(256, 256)),
     num_classes=2,
-    batch_size=12,
-    num_workers=12
+    batch_size=6,
+    num_workers=6
 )
 
 # 2. Build the task
@@ -39,8 +39,8 @@ model = SemanticSegmentation(
 )
 
 # 3. Create the trainer and finetune the model
-trainer = flash.Trainer(max_epochs=10, gpus=torch.cuda.device_count())
-trainer.finetune(model, datamodule=datamodule, strategy="freeze")
+trainer = flash.Trainer(max_epochs=30, gpus=torch.cuda.device_count())
+trainer.finetune(model, datamodule=datamodule, strategy="no_freeze")  # strategy="freeze"
 
 # 4. Segment a few images!
 predict_files = [
@@ -56,4 +56,4 @@ predictions = trainer.predict(model, datamodule=datamodule)
 print(predictions)
 
 # 5. Save the model!
-trainer.save_checkpoint("results/tmp/segmentation_model_overfit.pt")
+trainer.save_checkpoint("results/tmp/segmentation_model_overfit_no_freeze.pt")
