@@ -12,7 +12,22 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 colour_code = np.array([(220, 220, 220), (128, 0, 0), (0, 128, 0),  # class
-                        (192, 0, 0), (64, 128, 0), (192, 128, 0)])  # background
+                        (192, 0, 0), (64, 128, 0), (192, 128, 0),   # background
+        (70, 70, 70),      # Buildings
+        (190, 153, 153),   # Fences
+        (72, 0, 90),       # Other
+        (220, 20, 60),     # Pedestrians
+        (153, 153, 153),   # Poles
+        (157, 234, 50),    # RoadLines
+        (128, 64, 128),    # Roads
+        (244, 35, 232),    # Sidewalks
+        (107, 142, 35),    # Vegetation
+        (0, 0, 255),      # Vehicles
+        (102, 102, 156),  # Walls
+        (220, 220, 0),
+        (220, 220, 0),
+        (220, 220, 0),(220, 220, 0),(220, 220, 0)
+                        ])  # background
 
 def decode_colormap(labels, num_classes=2):
         """
@@ -34,7 +49,7 @@ def decode_colormap(labels, num_classes=2):
 
 gpus = "cuda:0"
 map_location = {'cpu':'cuda:0'}
-model_f = "results/tmp/segmentation_model_overfit.pt"
+model_f = "results/tmp/carla_FPN_mnetv3_small_075_overfit_freeze.pt"
 model = SemanticSegmentation.load_from_checkpoint(model_f,map_location=map_location)
 # pretrained_model.eval()
 # pretrained_model.freeze()
@@ -47,9 +62,9 @@ trainer = flash.Trainer(max_epochs=3, gpus=torch.cuda.device_count())
 
 # 4. Segment a few images!
 predict_files = [
-        "data/bitou_test/DJI_20220404135614_0001.JPG",
-        "data/bitou_test/DJI_20220404140510_0015.JPG",
-        "data/bitou_test/DJI_20220404140802_0022.JPG"
+        "data/CameraRGB/F61-20.png",
+        "data/CameraRGB/F64-3.png",
+        "data/CameraRGB/F66-27.png"
     ]
 datamodule = SemanticSegmentationData.from_files(
     predict_files=predict_files,
@@ -64,9 +79,9 @@ for i, pred in enumerate(predictions):
     l = (pr > 0.0).float()
     lab = torch.argmax(pr, dim=0).detach().numpy()
     print(label.shape)
-    dec_label = decode_colormap(label, num_classes=2)
-    dec_l = decode_colormap(l)
-    dec_lab = decode_colormap(lab)
+    dec_label = decode_colormap(label, num_classes=21)
+    dec_l = decode_colormap(l, num_classes=21)
+    dec_lab = decode_colormap(lab, num_classes=21)
 
     # 6. Show the images
     imf = predict_files[i] 
