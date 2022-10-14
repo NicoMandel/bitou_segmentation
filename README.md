@@ -55,7 +55,8 @@ there are currently two environments available, both working with RTX GPUs (Cuda
 
 ### Testing
 #### Environment
-Running `pytest .` inside the `tests` directory will ensure the packages are configured correctly
+Running `pytest .` inside the `tests` directory will ensure the packages are configured correctly.
+ToDO: add functionality for passing arguments to pytest, see [here](https://stackoverflow.com/questions/40880259/how-to-pass-arguments-in-pytest-by-command-line)
 
 #### Flash functionality
 running `scripts/base_task.py` runs the [default Semantic Segmentation task](https://lightning-flash.readthedocs.io/en/latest/reference/semantic_segmentation.html)

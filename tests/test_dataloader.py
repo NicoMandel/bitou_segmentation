@@ -5,7 +5,7 @@
 import pytest
 import os.path
 import numpy as np
-import cv2
+from tqdm import tqdm
 
 from csupl import dataloader
 
@@ -35,16 +35,11 @@ def test_datamodule():
     assert len(dm.train_dataset) > 0
     assert len(dm.val_dataset) > 0
 
-def test_mask_length():
-    ds = dataloader.BitouDataset(root = root)
-    _, mask = ds[0]
-    assert mask.max() < num_classes
-
 def test_mask_validity():
     ds = dataloader.BitouDataset(root = root)
     fct = 0
     cl_ct = 0
-    for i in range(len(ds)):
+    for i in tqdm(range(len(ds))):
         _, mask = ds[i]
 
         # count red channel
