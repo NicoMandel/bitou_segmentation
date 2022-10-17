@@ -25,16 +25,17 @@ datamodule = SemanticSegmentationData.from_folders(
     train_folder="data/bitou_test",
     train_target_folder="data/bitou_test_masks",
     val_split=0.2,
-    transform_kwargs=dict(image_size=(256, 256)),
+    transform_kwargs=dict(image_size=(512, 512)),
     num_classes=3,
-    batch_size=3,
-    num_workers=3
+    batch_size=4,   # MEMORY
+    num_workers=4,
+    pin_memory=True
 )
 
 # 2. Build the task
 model = SemanticSegmentation(
-    backbone="mobilenetv3_small_075",       #   mobilenetv3_large_100
-    head="fpn",
+    backbone="mobilenetv3_large_100",       #   mobilenetv3_large_100
+    head="deeplabv3",
     num_classes=datamodule.num_classes,
 )
 
@@ -56,4 +57,4 @@ predictions = trainer.predict(model, datamodule=datamodule)
 print(predictions)
 
 # 5. Save the model!
-trainer.save_checkpoint("results/tmp/bitou_3class_FPN_mnetv3_small_075_overfit_freeze.pt")
+trainer.save_checkpoint("results/tmp/bitou_3class_512_deeplabv3_mnetv3large_overfit_freeze.pt")

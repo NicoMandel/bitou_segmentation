@@ -48,16 +48,17 @@ def decode_colormap(labels, num_classes=2):
         return colour_map
 
 def model_bitou():
-    model_f = "results/tmp/bitou_3class_FPN_mnetv3_small_075_overfit_freeze.pt"
+    # model_f = "results/tmp/bitou_3class_FPN_mnetv3_small_075_overfit_freeze.pt"
+    model_f = "results/tmp/bitou_3class_512_deeplabv3_mnetv3large_overfit_freeze.pt"
     predict_files = [
-        "data/bitou_test/DJI_20220404135834_0005.JPG",
-        "data/bitou_test/DJI_20220404140510_0016.JPG",
-        "data/bitou_test/DJI_20220404141042_0026.JPG"
+        "data/bitou_test/DJI_20220404140149_0009.JPG",
+        "data/bitou_test/DJI_20220404140422_0012.JPG",
+        "data/bitou_test/DJI_20220404140702_0019.JPG"
     ]
     mask_files = [
-        "data/bitou_test_masks/DJI_20220404135834_0005.JPG",
-        "data/bitou_test_masks/DJI_20220404140510_0016.JPG",
-        "data/bitou_test_masks/DJI_20220404141042_0026.JPG"
+        "data/bitou_test_masks/DJI_20220404140149_0009.JPG",
+        "data/bitou_test_masks/DJI_20220404140422_0012.JPG",
+        "data/bitou_test_masks/DJI_20220404140702_0019.JPG"
     ]
     return model_f, predict_files, mask_files
 
