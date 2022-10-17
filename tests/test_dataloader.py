@@ -11,7 +11,7 @@ from flash.image import SemanticSegmentationData
 
 fdir = os.path.abspath(os.path.dirname(__file__))
 root = os.path.join(fdir, "..", "data")
-num_classes = 3
+num_classes = 2
 dm = SemanticSegmentationData.from_folders(
         train_folder= os.path.join(root, "bitou_test"),
         train_target_folder= os.path.join(root, "bitou_test_masks"),
