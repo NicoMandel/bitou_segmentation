@@ -22,13 +22,13 @@ from PIL import Image
 seed_everything(42)
 
 datamodule = SemanticSegmentationData.from_folders(
-    train_folder="data/CameraRGB",
-    train_target_folder="data/CameraSeg",
-    val_split=0.1,
+    train_folder="data/bitou_test",
+    train_target_folder="data/bitou_test_masks",
+    val_split=0.2,
     transform_kwargs=dict(image_size=(256, 256)),
-    num_classes=21,
-    batch_size=24,
-    num_workers=12
+    num_classes=3,
+    batch_size=3,
+    num_workers=3
 )
 
 # 2. Build the task
@@ -39,14 +39,14 @@ model = SemanticSegmentation(
 )
 
 # 3. Create the trainer and finetune the model
-trainer = flash.Trainer(max_epochs=50, gpus=torch.cuda.device_count())
+trainer = flash.Trainer(max_epochs=30, gpus=torch.cuda.device_count())
 trainer.finetune(model, datamodule=datamodule, strategy="freeze")  # strategy="no-freeze"
 
 # 4. Segment a few images!
 predict_files = [
-        "data/CameraRGB/F62-30.png",
-        "data/CameraRGB/F65-6.png",
-        "data/CameraRGB/F61-1.png"
+        "data/bitou_test/DJI_20220404135834_0005.JPG",
+        "data/bitou_test/DJI_20220404140510_0016.JPG",
+        "data/bitou_test/DJI_20220404141042_0026.JPG"
     ]
 datamodule = SemanticSegmentationData.from_files(
     predict_files=predict_files,
@@ -56,4 +56,4 @@ predictions = trainer.predict(model, datamodule=datamodule)
 print(predictions)
 
 # 5. Save the model!
-trainer.save_checkpoint("results/tmp/carla_FPN_mnetv3_small_075_overfit_freeze.pt")
+trainer.save_checkpoint("results/tmp/bitou_3class_FPN_mnetv3_small_075_overfit_freeze.pt")

@@ -47,9 +47,39 @@ def decode_colormap(labels, num_classes=2):
         # image = image.to("cpu").numpy().transpose(1, 2, 0)
         return colour_map
 
+def model_bitou():
+    model_f = "results/tmp/bitou_3class_FPN_mnetv3_small_075_overfit_freeze.pt"
+    predict_files = [
+        "data/bitou_test/DJI_20220404135834_0005.JPG",
+        "data/bitou_test/DJI_20220404140510_0016.JPG",
+        "data/bitou_test/DJI_20220404141042_0026.JPG"
+    ]
+    mask_files = [
+        "data/bitou_test_masks/DJI_20220404135834_0005.JPG",
+        "data/bitou_test_masks/DJI_20220404140510_0016.JPG",
+        "data/bitou_test_masks/DJI_20220404141042_0026.JPG"
+    ]
+    return model_f, predict_files, mask_files
+
+def model_carla():
+    model_f = "results/tmp/carla_FPN_mnetv3_small_075_overfit_freeze.pt"
+    predict_files = [
+        "data/CameraRGB/F61-20.png",
+        "data/CameraRGB/F64-3.png",
+        "data/CameraRGB/F66-27.png"
+    ]
+
+    mask_files = [
+        "data/CameraSeg/F61-20.png",
+        "data/CameraSeg/F64-3.png",
+        "data/CameraSeg/F66-27.png",
+    ]
+    return model_f, predict_files, mask_files
+
+
 gpus = "cuda:0"
 map_location = {'cpu':'cuda:0'}
-model_f = "results/tmp/carla_FPN_mnetv3_small_075_overfit_freeze.pt"
+model_f, predict_files, mask_files = model_bitou()
 model = SemanticSegmentation.load_from_checkpoint(model_f,map_location=map_location)
 # pretrained_model.eval()
 # pretrained_model.freeze()
@@ -61,17 +91,6 @@ model = SemanticSegmentation.load_from_checkpoint(model_f,map_location=map_locat
 trainer = flash.Trainer(max_epochs=3, gpus=torch.cuda.device_count())
 
 # 4. Segment a few images!
-predict_files = [
-        "data/CameraRGB/F61-20.png",
-        "data/CameraRGB/F64-3.png",
-        "data/CameraRGB/F66-27.png"
-    ]
-
-mask_files = [
-    "data/CameraSeg/F61-20.png",
-    "data/CameraSeg/F64-3.png",
-    "data/CameraSeg/F66-27.png",
-] 
 datamodule = SemanticSegmentationData.from_files(
     predict_files=predict_files,
     batch_size=1
