@@ -66,6 +66,12 @@ predict_files = [
         "data/CameraRGB/F64-3.png",
         "data/CameraRGB/F66-27.png"
     ]
+
+mask_files = [
+    "data/CameraSeg/F61-20.png",
+    "data/CameraSeg/F64-3.png",
+    "data/CameraSeg/F66-27.png",
+] 
 datamodule = SemanticSegmentationData.from_files(
     predict_files=predict_files,
     batch_size=1
@@ -98,9 +104,14 @@ for i, pred in enumerate(predictions):
     axs[0,1].set_title("Squeeze")
     axs[0,1].axis('off')
 
-    # axs[1,0].imshow(dec_l)
-    # axs[1,0].set_title("larger than 0")
-    # axs[1,0].axis('off')
+    # Displaying the OG mask
+    maskf = mask_files[i]
+    mask = Image.open(maskf)
+    mask_arr = np.asarray(mask)[...,0]      # Get the red channel - where the labels are stored
+    mask_dec = decode_colormap(mask_arr, num_classes=21)
+    axs[1,0].imshow(mask_dec)
+    axs[1,0].set_title("Mask")
+    axs[1,0].axis('off')
 
     axs[1,1].imshow(dec_lab)
     axs[1,1].set_title("No squeeze")
