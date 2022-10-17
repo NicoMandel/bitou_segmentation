@@ -15,6 +15,7 @@ import argparse
 from pathlib import Path
 import string
 from PIL import Image, ImageDraw
+from tqdm import tqdm
 
 
 def parse_args():
@@ -66,7 +67,7 @@ def write_masks(polygon_coord: dict, img_list : list, input_dir : Path, mask_dir
         function to load the images and write the mask
     """
 
-    for k, poly_coord in polygon_coord.items():
+    for k, poly_coord in tqdm(polygon_coord.items()):
         orig_path = input_dir / ".".join([k,f_ext])
         orig_img = Image.open(orig_path)
         mask_im = generate_mask_image(poly_coord, orig_img)
@@ -92,4 +93,3 @@ if __name__=="__main__":
     json_metadata = json_dict["_via_img_metadata"]
     polygon_dict = get_polygon_coordinates(json_metadata)
     write_masks(polygon_dict, img_list, img_directory, mask_directory, f_ext)
-    print("Test Done")
