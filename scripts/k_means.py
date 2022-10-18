@@ -51,7 +51,7 @@ if __name__=="__main__":
     K = args["K"]
     epsilon = args["epsilon"]
     iterations = args["iterations"]
-    overlay_class = args["overlay"]
+    overlay = args["overlay"]
     scale = args["scale"]
     
     # Reading image
@@ -61,14 +61,14 @@ if __name__=="__main__":
         fname = img_dir / (img_name+f_ext)
         img = read_image(str(fname))
         if scale:
-            img = resize_img(img, int(scale))
+            img = resize_img(img, scale)
 
         # doing the clustering
         mask, labels = cluster_img(img, K=K, iterations=iterations, epsilon=epsilon)
 
         # whiteout the xths cluster
-        if overlay_class:
-            # mask = disable_cluster(mask, overlay_class-1, labels)
+        if overlay:
+            # mask = disable_cluster(mask, overlay, labels)
             mask = decode_colormap(mask, labels, K)
 
         # Plot the images
@@ -78,11 +78,11 @@ if __name__=="__main__":
     
     else:
         print("Reading entire directory {}, {} images".format(img_dir, len(img_list)))
-        outdir_name = "K-{}_scale-{}_Overlay-{}".format(K, scale, overlay_class-1)
+        outdir_name = "K-{}_scale-{}_Overlay-{}".format(K, scale, overlay)
         output_parentdir = args["output"]
         outdir = os.path.join(output_parentdir, outdir_name)
         print("Running Test case K: {}\tScale: {}\nSettings: Iterations {}\tEpsilon: {}\tOverlay Class: {}".format(
-        K, scale, iterations, epsilon, overlay_class-1
+        K, scale, iterations, epsilon, overlay
             ))
 
         try:
@@ -98,8 +98,8 @@ if __name__=="__main__":
                 mask, labels = cluster_img(img, K=K, iterations=iterations, epsilon=epsilon)
 
                 # whiteout the xths cluster
-                if overlay_class:
-                    # mask = disable_cluster(mask, overlay_class-1, labels)
+                if overlay:
+                    # mask = disable_cluster(mask, overlay, labels)
                     mask = decode_colormap(mask, labels, K)
 
                 # Save the image
