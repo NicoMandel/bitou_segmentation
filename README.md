@@ -5,6 +5,9 @@ This project is following tips and guidelines from the [Good Research Code Handb
 
 The main package that is used in this project is [Pytorch lightning flash](https://lightning-flash.readthedocs.io/en/latest/installation.html) and its associated package [lightning bolts](https://www.pytorchlightning.ai/bolts)
 
+possible segmentation models available from [qbvel](https://github.com/qubvel/segmentation_models.pytorch)
+consider background randomization - see Julian's code and [this article](https://journalofbigdata.springeropen.com/articles/10.1186/s40537-019-0197-0)
+or [this guy](https://journalofbigdata.springeropen.com/articles/10.1186/s40537-019-0197-0)
 
 ## Folder Structure
 ```
