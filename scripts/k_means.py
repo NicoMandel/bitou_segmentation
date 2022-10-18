@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument("-s", "--scale", help="scale for resizing the images in percentage. If None is given, will not resize", type=int, default=0)
     parser.add_argument("-e", "--epsilon", help="epsilon stopping criteria for the KMeans clustering algorithm. Defaults to 0.2", type=float, default=0.2)
     parser.add_argument("--iterations", type=int, help="Iterations to run the algorithm. Defaults to 100", default=100)
-    parser.add_argument("--overlay", help="Class index to whiteout. If not given, will not overlay. 1-indexed", default=0, type=int)
+    parser.add_argument("--overlay", help="Whether to decode colours. Defaults to false", default=False, type=bool)
     parser.add_argument("--file-extension", help="Image file extension, with dot. Defaults to JPG", default=".JPG")
     parser.add_argument("-p", "--plot", help="Index to plot. If given, will not write directory out. 1-indexed!", default=0, type=int)
     args = vars(parser.parse_args())
@@ -53,7 +53,7 @@ if __name__=="__main__":
     iterations = args["iterations"]
     overlay_class = args["overlay"]
     scale = args["scale"]
-
+    
     # Reading image
     plot_idx = args["plot"]
     if plot_idx:
@@ -68,7 +68,8 @@ if __name__=="__main__":
 
         # whiteout the xths cluster
         if overlay_class:
-            mask = disable_cluster(mask, overlay_class-1, labels)
+            # mask = disable_cluster(mask, overlay_class-1, labels)
+            mask = decode_colormap(mask, labels, K)
 
         # Plot the images
         plot_images(img, mask, img_name, K)
@@ -80,6 +81,9 @@ if __name__=="__main__":
         outdir_name = "K-{}_scale-{}_Overlay-{}".format(K, scale, overlay_class-1)
         output_parentdir = args["output"]
         outdir = os.path.join(output_parentdir, outdir_name)
+        print("Running Test case K: {}\tScale: {}\nSettings: Iterations {}\tEpsilon: {}\tOverlay Class: {}".format(
+        K, scale, iterations, epsilon, overlay_class-1
+            ))
 
         try:
             mkdir(outdir)
@@ -95,7 +99,8 @@ if __name__=="__main__":
 
                 # whiteout the xths cluster
                 if overlay_class:
-                    mask = disable_cluster(mask, overlay_class-1, labels)
+                    # mask = disable_cluster(mask, overlay_class-1, labels)
+                    mask = decode_colormap(mask, labels, K)
 
                 # Save the image
                 outfig = os.path.join(outdir, img_name + ".jpg")

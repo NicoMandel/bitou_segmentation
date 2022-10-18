@@ -9,6 +9,36 @@ import cv2
 import matplotlib.pyplot as plt
 # plt.rcParams['figure.dpi'] = 300
 
+
+colour_code = np.array([(220, 220, 220), (128, 0, 0), (0, 128, 0),  # class
+                        (192, 0, 0), (64, 128, 0), (192, 128, 0),   # background
+        (70, 70, 70),      # Buildings
+        (190, 153, 153),   # Fences
+        (72, 0, 90),       # Other
+        (220, 20, 60),     # Pedestrians
+        (153, 153, 153),   # Poles
+        (157, 234, 50),    # RoadLines
+        (128, 64, 128),    # Roads
+        (244, 35, 232),    # Sidewalks
+        (107, 142, 35),    # Vegetation
+        (0, 0, 255),      # Vehicles
+        (102, 102, 156),  # Walls
+        (220, 220, 0),
+        (220, 220, 0),
+        (220, 220, 0),(220, 220, 0),(220, 220, 0)
+                        ])  # background
+
+def decode_colormap(mask, labels, num_classes=2):
+        """
+            Function to decode the colormap. Receives a numpy array of the correct label
+        """
+        m = np.copy(mask)
+        m = m.reshape((-1,3))
+        for idx in range(0, num_classes):
+            m[labels == idx] = colour_code[idx]
+        colour_map = m.reshape(mask.shape)
+        return colour_map
+
 def disable_cluster(img : np.array, cluster : int, labels, color : list = [255,255,255]) -> np.array:
     """
         Function to disable a cluster from visualisation and return the image
