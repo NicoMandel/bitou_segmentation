@@ -30,32 +30,88 @@ def parse_args():
                         will create a subfolder with a string concatenated by the K-means settings.\
                         if argument plot is given, will not create output folder", type=str, default=data_dir)
     parser.add_argument("-K", help="Number of clusters K to use. Default is 4",type=int, default=4)
-    parser.add_argument("-s", "--scale", help="scale for resizing the images in percentage. If None is given, will not resize", type=int, default=0)
+    parser.add_argument("-s", "--scale", help="scale for resizing the images in percentage. If None is given, will not resize", type=int, default=30)
     parser.add_argument("-e", "--epsilon", help="epsilon stopping criteria for the KMeans clustering algorithm. Defaults to 0.2", type=float, default=0.2)
     parser.add_argument("--iterations", type=int, help="Iterations to run the algorithm. Defaults to 100", default=100)
-    parser.add_argument("--overlay", help="Whether to decode colours. Defaults to false", default=False, type=bool)
+    parser.add_argument("--overlay", help="Whether to decode colours. Defaults to false", default=False, action="store_true")
     parser.add_argument("--file-extension", help="Image file extension, with dot. Defaults to JPG", default=".JPG")
     parser.add_argument("-p", "--plot", help="Index to plot. If given, will not write directory out. 1-indexed!", default=0, type=int)
+    parser.add_argument("--full", help="Taking the entire directory as a single data entry. Long Run duration with high K. \
+                        Even longer with no Scale factor. Recommended: Scale 30, K 5. Default is False" , default=False, action="store_true") 
     args = vars(parser.parse_args())
     return args
 
+def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : int, epsilon : float, plot_idx : int, overlay : bool, output_dir : str) -> None:
+    """
+        Function that will run the full directory
+    """
+    # get the image shape of the first image to create a big numpy array
+    img_name = img_list[0]
+    fname = img_dir / (img_name + f_ext)
+    img = read_image(str(fname))
+    if scale:
+        img = resize_img(img, scale_perc=scale)       # resizes to 50% by default
+    img_shape = img.shape
+    img_shape = tuple([len(img_list)]) + img_shape
+    batch_arr = np.zeros(img_shape)
 
-if __name__=="__main__":
-    args = parse_args()
+    for i, img_name in tqdm(enumerate(img_list)):
+        fname = img_dir / (img_name+f_ext)
+        img = read_image(str(fname))
+        if scale:
+            img = resize_img(img, scale_perc=scale)
+        
+        # insert into big array
+        batch_arr[i,...] = img
 
-    img_dir = Path(args["input"])
-    f_ext = args["file_extension"]
-    img_list = get_image_list(img_dir, f_ext=f_ext)
+    # Actual clustering is happening here
+    print("Starting Clustering. Lengthy Operation. Sit back and grab a coffee")
+    mask, labels = cluster_img(batch_arr, K=K, iterations=iterations, epsilon=epsilon)
+    labels = labels.reshape(batch_arr.shape[:-1])
+    print("Finished Clustering. Have a look at the images being written next (with coffee in hand)")
 
-    # Clustering settings
-    K = args["K"]
-    epsilon = args["epsilon"]
-    iterations = args["iterations"]
-    overlay = args["overlay"]
-    scale = args["scale"]
-    
-    # Reading image
-    plot_idx = args["plot"]
+    # Split whether plotting is necessary or not
+    if plot_idx:
+        idx = plot_idx-1
+
+        img_name = img_list[idx]
+        img = batch_arr[idx, ...]
+        m = mask[idx, ...]
+        label = labels[idx, ...]
+        label = label.flatten()
+        if overlay:
+            m = decode_colormap(m, label, K)
+        plot_images(img, m, img_name, K)
+        print("Test line for debugging")
+    else:
+        print("Writing entire directory {}, {} images".format(img_dir, len(img_list)))
+        outdir_name = "K-{}_scale-{}_Overlay-{}-full".format(K, scale, overlay)
+        output_parentdir = output_dir
+        outdir = os.path.join(output_parentdir, outdir_name)
+        print("Running Test case K: {}\tScale: {}\nSettings: Iterations {}\tEpsilon: {}\tOverlay Class: {}".format(
+        K, scale, iterations, epsilon, overlay
+            ))
+        print("Writing to: {}".format(outdir))
+        try:
+            mkdir(outdir)
+            for i, img_name in tqdm(enumerate(img_list)):
+                img = batch_arr[i,...]
+                m = mask[i,...]
+                label = labels[i,...]
+                label = label.flatten()
+                if overlay:
+                    m = decode_colormap(m, label, K)
+                
+                outfig = os.path.join(outdir, img_name + ".jpg")
+                tqdm.write("Saving to: {}".format(outfig))
+                save_image(outfig, m)
+                
+        except OSError: raise # FileExistsErros is subclass of OSError
+
+def run_single(img_list : str, img_dir : Path, scale : int, K : int, iterations : int, epsilon : float, plot_idx : int, overlay : bool, output_dir : str):
+    """
+        Function that will run a single file from the directory
+    """
     if plot_idx:
         img_name = img_list[plot_idx-1]
         fname = img_dir / (img_name+f_ext)
@@ -110,4 +166,30 @@ if __name__=="__main__":
         except OSError: raise # FileExistsErros is subclass of OSError
 
 
+if __name__=="__main__":
+    args = parse_args()
+
+    # directory settings
+    img_dir = Path(args["input"])
+    f_ext = args["file_extension"]
+    img_list = get_image_list(img_dir, f_ext=f_ext)
+    outdir = args["output"]
+
+    # Clustering settings
+    K = args["K"]
+    epsilon = args["epsilon"]
+    iterations = args["iterations"]
+    overlay = args["overlay"]
+    scale = args["scale"]
+    
+    # Reading image
+    plot_idx = args["plot"]
+    
+    # Whether to run full folder:
+    full = args["full"]
+
+    if full:
+        run_full(img_list, img_dir, scale, K, iterations, epsilon, plot_idx, overlay, outdir)
+    else:
+        run_single(img_list, img_dir, scale, K, iterations, epsilon, plot_idx, overlay, outdir)
 
