@@ -1,6 +1,6 @@
 # The basic semantic segmentation as outlined in the pytorch flash documentation [here](https://lightning-flash.readthedocs.io/en/latest/reference/semantic_segmentation.html)
 
-from base64 import decode
+
 import torch
 import numpy as np
 
@@ -47,6 +47,17 @@ def decode_colormap(labels, num_classes=2):
         # image = image.to("cpu").numpy().transpose(1, 2, 0)
         return colour_map
 
+def alternative_decode_colormap(shape, labels, num_classes=2):
+        """
+            Function to decode the colormap. Receives a numpy array of the correct label
+        """
+        m = np.zeros(shape).astype(np.uint8)
+        # m = m.reshape((-1,3))
+        for idx in range(0, num_classes):
+            m[labels == idx] = colour_code[idx]
+        # colour_map = m.reshape(mask.shape)
+        return m
+
 def model_bitou():
     # model_f = "results/tmp/bitou_3class_FPN_mnetv3_small_075_overfit_freeze.pt"
     model_f = "results/tmp/bitou_3class_512_deeplabv3_mnetv3large_overfit_freeze.pt"
@@ -77,65 +88,76 @@ def model_carla():
     ]
     return model_f, predict_files, mask_files
 
+if __name__=="__main__":
+    gpus = "cuda:0"
+    map_location = {'cpu':'cuda:0'}
+    model_f, predict_files, mask_files = model_bitou()
+    model = SemanticSegmentation.load_from_checkpoint(model_f,map_location=map_location)
+    # pretrained_model.eval()
+    # pretrained_model.freeze()
+    # y_hat = pretrained_model(x)
 
-gpus = "cuda:0"
-map_location = {'cpu':'cuda:0'}
-model_f, predict_files, mask_files = model_bitou()
-model = SemanticSegmentation.load_from_checkpoint(model_f,map_location=map_location)
-# pretrained_model.eval()
-# pretrained_model.freeze()
-# y_hat = pretrained_model(x)
+    # SemanticSegmentation.available_outputs()
 
-# SemanticSegmentation.available_outputs()
+    # 3. Create the trainer and finetune the model
+    trainer = flash.Trainer(max_epochs=3, gpus=torch.cuda.device_count())
 
-# 3. Create the trainer and finetune the model
-trainer = flash.Trainer(max_epochs=3, gpus=torch.cuda.device_count())
+    # 4. Segment a few images!
+    datamodule = SemanticSegmentationData.from_files(
+        predict_files=predict_files,
+        batch_size=1
+    )
+    predictions = trainer.predict(model, datamodule=datamodule, output='preds') # using 'labels' does not work - unknown why. class names? output='preds'
+    print(predictions)
+    for i, pred in enumerate(predictions):
+        pr = pred[0]
+        print(pr.shape)
+        label = torch.argmax(pr.squeeze(), dim=0).detach().numpy()
+        l = (pr > 0.0).float()
+        lab = torch.argmax(pr, dim=0).detach().numpy()
+        print(label.shape)
+        dec_label = decode_colormap(label, num_classes=21)
+        dec_l = decode_colormap(l, num_classes=21)
+        dec_lab = decode_colormap(lab, num_classes=21)
 
-# 4. Segment a few images!
-datamodule = SemanticSegmentationData.from_files(
-    predict_files=predict_files,
-    batch_size=1
-)
-predictions = trainer.predict(model, datamodule=datamodule, output='preds') # using 'labels' does not work - unknown why. class names? output='preds'
-print(predictions)
-for i, pred in enumerate(predictions):
-    pr = pred[0]
-    print(pr.shape)
-    label = torch.argmax(pr.squeeze(), dim=0).detach().numpy()
-    l = (pr > 0.0).float()
-    lab = torch.argmax(pr, dim=0).detach().numpy()
-    print(label.shape)
-    dec_label = decode_colormap(label, num_classes=21)
-    dec_l = decode_colormap(l, num_classes=21)
-    dec_lab = decode_colormap(lab, num_classes=21)
+        # 6. Show the images
+        imf = predict_files[i] 
+        im = Image.open(imf)
+        im_arr = np.asarray(im)
 
-    # 6. Show the images
-    imf = predict_files[i] 
-    im = Image.open(imf)
-    im_arr = np.asarray(im)
+        # show the predictions
+        fig, axs = plt.subplots(2,2)    
+        axs[0,0].imshow(im_arr)
+        axs[0,0].set_title("Original")
+        axs[0,0].axis('off')
 
-    # show the predictions
-    fig, axs = plt.subplots(2,2)    
-    axs[0,0].imshow(im_arr)
-    axs[0,0].set_title("Original")
-    axs[0,0].axis('off')
+        axs[0,1].imshow(dec_label)
+        axs[0,1].set_title("Squeeze")
+        axs[0,1].axis('off')
 
-    axs[0,1].imshow(dec_label)
-    axs[0,1].set_title("Squeeze")
-    axs[0,1].axis('off')
+        # Displaying the OG mask
+        maskf = mask_files[i]
+        mask = Image.open(maskf)
+        mask_arr = np.asarray(mask)[...,0]      # Get the red channel - where the labels are stored
+        mask_dec = decode_colormap(mask_arr, num_classes=21)
+        axs[1,0].imshow(mask_dec)
+        axs[1,0].set_title("Mask")
+        axs[1,0].axis('off')
 
-    # Displaying the OG mask
-    maskf = mask_files[i]
-    mask = Image.open(maskf)
-    mask_arr = np.asarray(mask)[...,0]      # Get the red channel - where the labels are stored
-    mask_dec = decode_colormap(mask_arr, num_classes=21)
-    axs[1,0].imshow(mask_dec)
-    axs[1,0].set_title("Mask")
-    axs[1,0].axis('off')
+        axs[1,1].imshow(dec_lab)
+        axs[1,1].set_title("No squeeze")
+        axs[1,1].axis('off')
 
-    axs[1,1].imshow(dec_lab)
-    axs[1,1].set_title("No squeeze")
-    axs[1,1].axis('off')
-    plt.show()
+        # Super Title
+        img_name = predict_files[i].split("/")[-1]
+        fig.suptitle("Bitou DeepLab MobileNet V3 512 x 512, " + img_name)
+
+        # Plotting
+        # plt.show()
+        # print("Debug Test line")
+
+        # Saving
+        outpath = "results/tmp/Bitou/Trained/" + img_name
+        plt.savefig(outpath, dpi=300)
 
 

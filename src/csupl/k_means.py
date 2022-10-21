@@ -111,5 +111,5 @@ def plot_images(img : np.ndarray, mask : np.ndarray, img_name : str, K : int) ->
     plt.show()
 
 def save_image(outfig : str, mask : np.ndarray) -> None:
-    cv2.imwrite(outfig, mask)
+    cv2.imwrite(outfig, cv2.cvtColor(mask, cv2.COLOR_BGR2RGB))
 
