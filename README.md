@@ -4,7 +4,9 @@ Project folder for the bitou bush segmentation project.
 This project is following tips and guidelines from the [Good Research Code Handbook](https://goodresearch.dev/setup.html).
 
 ## Albumentations branch
-this branch uses the albumentations package and self-configured tasks and masks
+this branch uses the [albumentations](https://albumentations.ai/docs/getting_started/mask_augmentation/) package and self-configured tasks and masks
+models come from the [smp package](https://smp.readthedocs.io/en/latest/metrics.html)
+an example of binary image classification can be found [here](https://github.com/catalyst-team/catalyst/blob/v21.02rc0/examples/notebooks/segmentation-tutorial.ipynb)
 
 
 ## Folder Structure
