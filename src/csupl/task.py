@@ -1,10 +1,9 @@
-from typing import Iterable
+from typing import Any
 import torch
 from torch import optim, nn
 
 import pytorch_lightning as pl
 import torchmetrics
-
 
 class SegmentationTask(pl.LightningModule):
     """
@@ -14,7 +13,7 @@ class SegmentationTask(pl.LightningModule):
     def __init__(self, model, loss, lr, weight_decay, num_classes):
         super(SegmentationTask, self).__init__()
         self.model = model
-        self.num_classes = num_classes + 1
+        self.num_classes = num_classes
 
         # Task parameters
         self.loss = loss
@@ -34,7 +33,7 @@ class SegmentationTask(pl.LightningModule):
         return optimiser
 
     # Steps section
-    def shared_step(self, batch):
+    def _shared_step(self, batch):
         """
             A shared step, as defined [here](https://pytorch-lightning.readthedocs.io/en/1.2.10/common/lightning_module.html#inference) 
         """
@@ -44,12 +43,12 @@ class SegmentationTask(pl.LightningModule):
         return out, J
 
     def training_step(self, batch, batch_idx):
-        _, J = self.shared_step(batch)
+        _, J = self._shared_step(batch)
         self.log_dict({'loss/train': J}, prog_bar=True, logger=True, on_step=True)
         return {'loss': J}
     
     def validation_step(self, batch, batch_idx):
-        out, J = self.shared_step(batch)
+        out, J = self._shared_step(batch)
         x, y = batch
         # Accuracy
         pred = self.softm(out)
@@ -62,7 +61,7 @@ class SegmentationTask(pl.LightningModule):
         x, y = batch
 
         # similar to simple forward step
-        out, J = self.shared_step(batch)
+        out, J = self._shared_step(batch)
         # Accuracy
         pred = self.softm(out)
         acc = self.accuracy(pred, y)
@@ -71,6 +70,10 @@ class SegmentationTask(pl.LightningModule):
 
         self.log_dict(test_dict, prog_bar=True, logger=True)
         return {'test_loss': J, 'test_acc': acc, 'out': out, 'in': x, 'truth': y}
+
+    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
+        out, _ = self._shared_step(batch)
+        return out
 
 
 

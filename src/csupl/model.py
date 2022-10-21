@@ -8,10 +8,6 @@
         * models from lightning flash - list is much longer in the registry   
 """
 
-import torch
-import torch.nn as nn
-import torchvision
-
 import pytorch_lightning as pl
 from typing import Any
 

@@ -6,20 +6,23 @@
 """
 
 import torch
-from csupl.model import Resnet18Skip, DeepLab, Unet, getSize, getBatchSize
-# loss fct
-from torch.nn import CrossEntropyLoss
+from csupl.model import Model
+import segmentation_models_pytorch as sgm
 
 # lightning
 import pytorch_lightning as pl
 from csupl.dataloader import BitouDataModule
 from csupl.task import SegmentationTask
 
+# loss fct
+from torch.nn import CrossEntropyLoss
+
 # Own imports
 import os.path
-from csupl.utils import onnx_export
+# from csupl.utils import onnx_export
 from csupl.train_utils import LogImages
 from datetime import date, datetime
+from argparse import ArgumentParser
 
 # import transforms as tfs
 import albumentations as A
@@ -28,7 +31,6 @@ from albumentations.pytorch import ToTensorV2
 # Logging
 from pytorch_lightning import loggers as pl_loggers
 
-from argparse import ArgumentParser
 
 def parse_args():
     parser = ArgumentParser(description="Training and Testing Loop for Semantic Segmentation model")
@@ -45,19 +47,6 @@ def parse_args():
     args = parser.parse_args()
     return vars(args)
 
-def getmodel(modelnumber, pretrained, num_classes):
-    """
-        Function to return a model from a parsed argument name
-    """
-    if modelnumber == 1:
-        return DeepLab(num_classes=num_classes, pretrained=pretrained)
-    elif modelnumber == 2:
-        return Unet(num_classes=num_classes)
-    # model=Resnet18Skip(num_classes, pretrained)   # Does not work with Albumentations due to difference in the spatial sizes - resize does not work
-    else:
-        raise NotImplementedError("No other model implemented.")
-
-
 if __name__=="__main__":
 
     args = parse_args()
@@ -66,13 +55,7 @@ if __name__=="__main__":
 
     # Training parameters  - depending on the hardware
     num_workers = args["workers"]
-
-
-    # Task parameters - depending on the training settings
-    loss = CrossEntropyLoss()
-    weight_decay = 1.0e-4
-    lr = 1.0e-3
-    pretrained = args["pretrained"]
+    batch_size = args["batch"]
 
     # For exporting
     export_model = args["save"]
@@ -80,13 +63,32 @@ if __name__=="__main__":
     # Dataset parameters
     root_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..' , 'dataset')
 
-
     # lightning - getting the model has to be done before loading the Data, because of the size dictated by the model
-    model = getmodel(args["model"], pretrained, num_classes)
-    width, height, reduction = getSize(model)
-    batch_size = getBatchSize(args["batch"], model)
+    model_name = "FPN"
+    encoder_name = "resnet34"
+    encoder_weights = "imagenet"
+    in_channels = 3     # RGB Data
+    if num_classes == 2:
+        classes = 1     # reset for binary case
+        loss_mode = sgm.losses.BINARY_MODE
+    else:
+        classes = num_classes
+        loss_mode = sgm.losses.MULTICLASS_MODE
 
-    # check_model(model, (3, height, width))
+    # ! losses: https://smp.readthedocs.io/en/latest/losses.html
+    # ! logits version may be wrong here!
+    loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
+
+    # Getting the actual model
+    model = Model(model_name, in_channels, classes, encoder_name, encoder_weights)
+    preprocess_params = model.get_preprocessing_parameters()
+
+    # Task parameters - depending on the training settings
+   
+    
+    lr = 1.0e-3
+    weight_decay = 1.0e-4
+    pretrained = args["pretrained"]
 
     # Transform probability
     p = 0.3
@@ -144,7 +146,7 @@ if __name__=="__main__":
     print("Logging to directory: {}".format(logdir))
 
     # lightning - task
-    task = SegmentationTask(model, loss, lr=lr, weight_decay=weight_decay, num_classes=num_classes)
+    task = SegmentationTask(model, loss, lr=lr, weight_decay=weight_decay, num_classes=classes)
 
     # Training
     # Alternative to limiting the training batches: https://pytorch-lightning.readthedocs.io/en/1.2.10/common/trainer.html#limit-train-batches
@@ -167,6 +169,6 @@ if __name__=="__main__":
     # Exporting the model
     if export_model:
         model.freeze()
-        onnx_export(model, modelfname, logdir, height=height, width=width)
+        # onnx_export(model, modelfname, logdir, height=height, width=width)
 
     print("Done with the execution, Hooray! Please see Tensorboard in directory {} for more information".format(logdir))
