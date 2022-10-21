@@ -2,6 +2,7 @@
     Main File. Imports the model file, which itself imports:
         * the dataset from `dataloader.py`
      the transforms
+    ! basic binary segmentation example using smp and albumentations: https://github.com/catalyst-team/catalyst/blob/v21.02rc0/examples/notebooks/segmentation-tutorial.ipynb
 """
 
 import torch
