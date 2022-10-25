@@ -12,7 +12,7 @@ import pytorch_lightning as pl
 from typing import Any
 
 import segmentation_models_pytorch as smp
-from segmentation_models_pytorch.encoders import get_preprocessing_fn
+from segmentation_models_pytorch.encoders import get_preprocessing_fn, get_preprocessing_params
 
 class Model(pl.LightningModule):
 
@@ -33,7 +33,8 @@ class Model(pl.LightningModule):
         """
             Function to get the preprocessing inputs
         """
-        return get_preprocessing_fn(self.encoder_name, self.encoder_weights)
+        prepr = get_preprocessing_params(self.encoder_name)         # get_preprocessing_fn(self.encoder_name, self.encoder_weights)
+        return prepr
 
     def get_available_models(self):
         raise NotImplementedError("Getting models from smp not yet implemented")

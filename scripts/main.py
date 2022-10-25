@@ -15,12 +15,12 @@ from csupl.dataloader import BitouDataModule
 from csupl.task import SegmentationTask
 
 # loss fct
-from torch.nn import CrossEntropyLoss
+# from torch.nn import CrossEntropyLoss
 
 # Own imports
 import os.path
 # from csupl.utils import onnx_export
-from csupl.train_utils import LogImages
+# from csupl.train_utils import LogImages
 from datetime import date, datetime
 from argparse import ArgumentParser
 
@@ -29,7 +29,7 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
 # Logging
-from pytorch_lightning import loggers as pl_loggers
+# from pytorch_lightning import loggers as pl_loggers
 
 
 def parse_args():
@@ -47,9 +47,27 @@ def parse_args():
     args = parser.parse_args()
     return vars(args)
 
+def default_args():
+    argdict = {}
+    argdict["classes"] = 2
+    argdict["batch"] = 4
+    argdict["workers"] = 4
+    argdict["save"] = False
+    argdict["dev_run"] = False
+    argdict["model"] = "irrelevant"
+    argdict["pretrained"] = "irrelevant"
+    argdict["limit"] = 1.0
+    argdict["epochs"] = 20
+
+    # height and width
+    argdict["height"] = 512
+    argdict["width"] = 512
+    return argdict
+
 if __name__=="__main__":
 
-    args = parse_args()
+    # args = parse_args()
+    args = default_args()
 
     num_classes = args["classes"]
 
@@ -61,7 +79,7 @@ if __name__=="__main__":
     export_model = args["save"]
 
     # Dataset parameters
-    root_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..' , 'dataset')
+    root_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..' , 'data')
 
     # lightning - getting the model has to be done before loading the Data, because of the size dictated by the model
     model_name = "FPN"
@@ -83,9 +101,7 @@ if __name__=="__main__":
     model = Model(model_name, in_channels, classes, encoder_name, encoder_weights)
     preprocess_params = model.get_preprocessing_parameters()
 
-    # Task parameters - depending on the training settings
-   
-    
+    # Task parameters - depending on the training settings    
     lr = 1.0e-3
     weight_decay = 1.0e-4
     pretrained = args["pretrained"]
@@ -93,12 +109,18 @@ if __name__=="__main__":
     # Transform probability
     p = 0.3
     # Pytorch transform parameters
+    mean = tuple(preprocess_params['mean'])
+    std = tuple(preprocess_params['std'])
+
+    height = args["height"]
+    width = args["width"]
+
     train_aug = A.Compose([
             # Spatial Transforms
         A.OneOf([
-            A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
+            # A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
             A.RandomCrop(height, width, p=1),
-            A.Resize(height, width, p=1)
+            # A.Resize(height, width, p=1)
         ], p=1),
         A.OneOf([
             A.VerticalFlip(p=p),
@@ -120,21 +142,27 @@ if __name__=="__main__":
             A.OpticalDistortion(p=p),
         ], p=p),
         # Necessary Transforms        
-        A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-        ToTensorV2()
+        A.Normalize(mean=mean, std=std),
+        ToTensorV2(transpose_mask=True)        # 
     ])
 
     test_aug = A.Compose([
-        A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
-        A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        A.RandomCrop(height, width, p=1),
+        # A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
+        A.Normalize(mean=mean, std=std),
         ToTensorV2()
     ])
 
     # lightning - updated way to load the data - with a datamodule. Much simpler
     datamodule = BitouDataModule(
-        root_dir, "Test", num_classes,
-        test_transforms=test_aug, train_transforms=train_aug,
-        batch_size=batch_size, num_workers=num_workers
+        root_dir,
+        # "Test",
+        # num_classes,
+        # test_transforms=test_aug,
+        mask_folder="bitou_binary_masks",
+        train_transforms=train_aug,
+        batch_size=batch_size, 
+        num_workers=num_workers
     )
 
     # Logger
@@ -142,7 +170,7 @@ if __name__=="__main__":
     tim = "{}:{}:{}".format(now.hour, now.minute, now.second)
     modelfname = "{}-{}-{}".format(type(model).__name__, date.today(), tim)
     logdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
-    tb_logger = pl_loggers.TensorBoardLogger(logdir, default_hp_metric=False, name="Albumentations-"+modelfname)
+    # tb_logger = pl_loggers.TensorBoardLogger(logdir, default_hp_metric=False, name="Albumentations-"+modelfname)
     print("Logging to directory: {}".format(logdir))
 
     # lightning - task
@@ -151,21 +179,23 @@ if __name__=="__main__":
     # Training
     # Alternative to limiting the training batches: https://pytorch-lightning.readthedocs.io/en/1.2.10/common/trainer.html#limit-train-batches
     trainer = pl.Trainer(
-        progress_bar_refresh_rate=5,
+        # progress_bar_refresh_rate=5,
+        log_every_n_steps=2,
         max_epochs=args["epochs"],
-        gpus=1,
-        logger=tb_logger,
+        accelerator='gpu' if torch.cuda.is_available() else None,
+        devices=torch.cuda.device_count(),
+        # logger=tb_logger,
         fast_dev_run=args["dev_run"],
         limit_train_batches=args["limit"],
         limit_val_batches=args["limit"],
-        callbacks=[LogImages(10)]
+        # callbacks=[LogImages(10)]
         )
     trainer.fit(task, datamodule=datamodule)
 
     # Testing
     trainer.test(task, datamodule=datamodule)
 
-    # exporting the model, importing it again and then running the test suite
+    # exporting the model, importing it again and then running the test suite TODO> should be done automatically from lightning
     # Exporting the model
     if export_model:
         model.freeze()

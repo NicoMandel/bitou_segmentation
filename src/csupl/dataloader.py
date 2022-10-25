@@ -49,9 +49,11 @@ class BitouDataset(VisionDataset):
 
         mask = cv2.imread(str(mask_name), cv2.IMREAD_UNCHANGED)
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2RGB)
+        mask = mask[...,0]
+        mask = mask[..., np.newaxis]
 
         # ! Albumentations specific transform syntax!
-        if self.transform is not None:
+        if self.transforms is not None:
             transformed = self.transforms(image=img, mask=mask)
             img = transformed["image"]
             mask = transformed["mask"]

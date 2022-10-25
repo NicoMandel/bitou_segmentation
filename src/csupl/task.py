@@ -13,12 +13,13 @@ class SegmentationTask(pl.LightningModule):
     def __init__(self, model, loss, lr, weight_decay, num_classes):
         super(SegmentationTask, self).__init__()
         self.model = model
-        self.num_classes = num_classes
+        # self.num_classes = num_classes
+        num_classes = num_classes + 1 if num_classes == 1 else num_classes
 
         # Task parameters
         self.loss = loss
         self.softm = nn.Softmax(dim=1)  # ! check if dimension 1 is the right dimension
-        self.accuracy = torchmetrics.IoU(self.num_classes)
+        self.accuracy = torchmetrics.JaccardIndex(num_classes)
 
         self.lr = lr
         self.weight_decay = weight_decay
@@ -39,7 +40,7 @@ class SegmentationTask(pl.LightningModule):
         """
         x, y = batch
         out = self.model(x)
-        J = self.loss(out, y.long())
+        J = self.loss(out, y.float())        # y.long()
         return out, J
 
     def training_step(self, batch, batch_idx):
