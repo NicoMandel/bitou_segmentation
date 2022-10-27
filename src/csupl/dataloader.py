@@ -86,6 +86,8 @@ class BitouDataModule(pl.LightningDataModule):
         self.train_transforms = train_transforms
         # self.test_transforms = test_transforms
 
+    # TODO: change this from assigning states (self.x) because it will only be run on one process - use setup.
+    # see [here](https://pytorch-lightning.readthedocs.io/en/latest/data/datamodule.html#prepare-data)
     def prepare_data(self):
             """
                 Same as the SegDataModule loader, but this one uses albumentations
