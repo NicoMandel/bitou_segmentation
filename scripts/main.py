@@ -3,6 +3,9 @@
         * the dataset from `dataloader.py`
      the transforms
     ! basic binary segmentation example using smp and albumentations: https://github.com/catalyst-team/catalyst/blob/v21.02rc0/examples/notebooks/segmentation-tutorial.ipynb
+    ! tutorial from pytorch lightning themselves: https://pytorch-lightning.readthedocs.io/en/latest/notebooks/course_UvA-DL/04-inception-resnet-densenet.html?highlight=segmentation%20task
+    
+
 """
 
 import torch
@@ -12,7 +15,6 @@ import segmentation_models_pytorch as sgm
 # lightning
 import pytorch_lightning as pl
 from csupl.dataloader import BitouDataModule
-from csupl.task import SegmentationTask
 
 # loss fct
 # from torch.nn import CrossEntropyLoss
@@ -52,12 +54,12 @@ def default_args():
     argdict["classes"] = 2
     argdict["batch"] = 4
     argdict["workers"] = 4
-    argdict["save"] = False
+    argdict["save"] = True
     argdict["dev_run"] = False
     argdict["model"] = "irrelevant"
     argdict["pretrained"] = "irrelevant"
     argdict["limit"] = 1.0
-    argdict["epochs"] = 20
+    argdict["epochs"] = 10
 
     # height and width
     argdict["height"] = 512
@@ -98,17 +100,22 @@ if __name__=="__main__":
     loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
 
     # Getting the actual model
-    model = Model(model_name, in_channels, classes, encoder_name, encoder_weights)
-    preprocess_params = model.get_preprocessing_parameters()
+    # model = Model(model_name, encoder_name, encoder_weights, in_channels, classes)
+    
 
     # Task parameters - depending on the training settings    
     lr = 1.0e-3
     weight_decay = 1.0e-4
     pretrained = args["pretrained"]
 
+    model = Model(model_name, encoder_name, encoder_weights, in_channels, classes,      # model parameters
+                loss=loss, lr = lr, weight_decay=weight_decay                           # task parameters
+                )
+
     # Transform probability
     p = 0.3
     # Pytorch transform parameters
+    preprocess_params = model.get_preprocessing_parameters()
     mean = tuple(preprocess_params['mean'])
     std = tuple(preprocess_params['std'])
 
@@ -168,13 +175,14 @@ if __name__=="__main__":
     # Logger
     now = datetime.now()
     tim = "{}:{}:{}".format(now.hour, now.minute, now.second)
-    modelfname = "{}-{}-{}".format(type(model).__name__, date.today(), tim)
+    modelfname = "{}-{}-{}".format(model_name + encoder_name, date.today(), tim)
     logdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
     # tb_logger = pl_loggers.TensorBoardLogger(logdir, default_hp_metric=False, name="Albumentations-"+modelfname)
     print("Logging to directory: {}".format(logdir))
 
     # lightning - task
-    task = SegmentationTask(model, loss, lr=lr, weight_decay=weight_decay, num_classes=classes)
+    # task = SegmentationTask(model, loss, lr=lr, weight_decay=weight_decay, num_classes=classes)
+
 
     # Training
     # Alternative to limiting the training batches: https://pytorch-lightning.readthedocs.io/en/1.2.10/common/trainer.html#limit-train-batches
@@ -190,15 +198,19 @@ if __name__=="__main__":
         limit_val_batches=args["limit"],
         # callbacks=[LogImages(10)]
         )
-    trainer.fit(task, datamodule=datamodule)
+    trainer.fit(model, datamodule=datamodule)
 
     # Testing
-    trainer.test(task, datamodule=datamodule)
+    # trainer.test(task, datamodule=datamodule)
 
     # exporting the model, importing it again and then running the test suite TODO> should be done automatically from lightning
     # Exporting the model
     if export_model:
         model.freeze()
+        export_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "results", "tmp")
+        export_fpath = os.path.join(export_dir, modelfname + ".pt")
+        trainer.save_checkpoint(export_fpath)
+        print("Saved model to: {}".format(export_fpath))
         # onnx_export(model, modelfname, logdir, height=height, width=width)
 
     print("Done with the execution, Hooray! Please see Tensorboard in directory {} for more information".format(logdir))
