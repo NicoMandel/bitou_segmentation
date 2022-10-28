@@ -2,15 +2,42 @@
 
 import torch
 import numpy as np
+import os.path
 
-import flash
+import pytorch_lightning as pl
 # from flash.core.data.utils import download_data
-from flash.image import SemanticSegmentation, SemanticSegmentationData
+from csupl.model import Model
+from csupl.dataloader import BitouDataset
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
+from torch.utils.data import DataLoader
+
+import cv2
+from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from PIL import Image
 
 colour_code = np.array([(220, 220, 220), (128, 0, 0), (0, 128, 0),  # class
-                        (192, 0, 0), (64, 128, 0), (192, 128, 0)])  # background
+                        (192, 0, 0), (64, 128, 0), (192, 128, 0),   # background
+                        (70, 70, 70),      # Buildings
+                        (190, 153, 153),   # Fences
+                        (72, 0, 90),       # Other
+                        (220, 20, 60),     # Pedestrians
+                        (153, 153, 153),   # Poles
+                        (157, 234, 50),    # RoadLines
+                        (128, 64, 128),    # Roads
+                        (244, 35, 232),    # Sidewalks
+                        (107, 142, 35),    # Vegetation
+                        (0, 0, 255),      # Vehicles
+                        (102, 102, 156),  # Walls
+                        (220, 220, 0),
+                        (220, 0, 220),
+                        (0, 220, 220),
+                        (110, 110, 0),
+                        (0, 110, 110)
+                                        ])  # background
+
 
 def decode_colormap(labels, num_classes=2):
         """
@@ -30,44 +57,164 @@ def decode_colormap(labels, num_classes=2):
         # image = image.to("cpu").numpy().transpose(1, 2, 0)
         return colour_map
 
-gpus = "cuda:0"
-map_location = {'cpu':'cuda:0'}
-model_f = "results/tmp/segmentation_model_overfit.pt"
-model = SemanticSegmentation.load_from_checkpoint(model_f,map_location=map_location)
-# pretrained_model.eval()
-# pretrained_model.freeze()
-# y_hat = pretrained_model(x)
+def alternative_decode_colormap(label, num_classes=2):
+    m = np.zeros_like(label)
+    for idx in range(0, num_classes):
+        m[label == idx] = colour_code[idx]
+    return m
 
-# SemanticSegmentation.available_outputs()
+def load_image(path : str):
+    img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return img
 
-# 3. Create the trainer and finetune the model
-trainer = flash.Trainer(max_epochs=3, gpus=torch.cuda.device_count())
+def load_mask(path : str):
+    mask = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+    mask = cv2.cvtColor(mask, cv2.COLOR_BGR2RGB)
+    mask = mask[...,0]
+    mask = mask[..., np.newaxis]
+    return mask
 
-# 4. Segment a few images!
-predict_files = [
-        "data/bitou_test/DJI_20220404135614_0001.JPG",
-        # "data/bitou_test/DJI_20220404140510_0015.JPG",
-        # "data/bitou_test/DJI_20220404140802_0022.JPG"
-    ]
-datamodule = SemanticSegmentationData.from_files(
-    predict_files=predict_files,
-    batch_size=1
-)
-predictions = trainer.predict(model, datamodule=datamodule, output='preds') # using 'labels' does not work - unknown why. class names?
-print(predictions)
-pred = predictions[0][0]
-print(pred.shape)
-label = torch.argmax(pred.squeeze(), dim=0).detach().numpy()
-# label = (pred > 0.0).float()
-print(label.shape)
-decoded = decode_colormap(label.detach().numpy(), num_classes=2)
+def load_image_and_mask(img_dir : str, mask_dir : str, img_name : str) -> tuple:
+    img_fname = os.path.join(img_dir, img_name )
+    mask_fname = os.path.join(mask_dir, img_name)
+    
+    img = load_image(img_fname)
+    mask = load_mask(mask_fname)
+    return (img, mask)
 
-# 6. Show the images
-imf = predict_files[0] 
-im = Image.open(imf)
-im.show()
+def run_deterministic_images(model : Model, transforms : A.Compose, img_list : list, img_dir : str, mask_dir : str, im_shape):
+    """
+        function to run deterministic dataloading and images
+        or use: next(iter(dl))
+        or use ds[10]
+    """
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    batch_shape = tuple([len(img_list), 3] + list(im_shape))
+    im_batch = torch.zeros(batch_shape)
+    mask_batch_shape = tuple([len(img_list), 1] + list(im_shape))
+    m_batch = torch.zeros(mask_batch_shape)
+    model.eval()
+    model.to(device)
+    for i, img in tqdm(enumerate(img_list)):
+        im, mask = load_image_and_mask(img_dir, mask_dir, img)
+        out = transforms(image = im, mask = mask)
+        im_batch[i, ...] = out['image']
+        m_batch[i, ...] = out['mask']
 
-# show the predictions
-im_lab = Image.fromarray(decoded)
-im_lab.show()
+    # pass all of them through at the same time
+    # x, y = transforms(image = im_batch, mask = m_batch)
+    x = im_batch.to(device)
+    with torch.no_grad():
+        y_hat = model(x)
+    y_hat = torch.argmax(y_hat, dim=1).detach().cpu().numpy()
+    return im_batch.detach().numpy(), y_hat, m_batch.detach().numpy()
 
+def plot3x3(input, output, mask):
+    fig, axs = plt.subplots(3,3)
+    for i in range(3):
+        axs[i,0].imshow(input[i, ...])
+        axs[i,0].axis('off')
+        axs[i,0].set_title('Original')
+
+        m = mask[i, ...]
+        m = decode_colormap(m.squeeze())
+        axs[i,1].imshow(m)
+        axs[i,1].axis('off')
+        axs[i,1].set_title('Mask')
+
+        out = output[i, ...]
+        out = decode_colormap(out)
+        axs[i,2].imshow(out)
+        axs[i,2].axis('off')
+        axs[i,2].set_title('Output')
+    plt.show()
+
+
+def run_lightning_trainer_images(datadir, augmentations, model):
+
+    ds = BitouDataset(datadir, augmentations, img_folder="bitou_test", mask_folder="bitou_binary_masks")
+    # get a dataloader of the dataset
+    batch_size = 3
+    num_workers = batch_size if batch_size < 12 else 12
+    dl = DataLoader(ds, batch_size=batch_size, num_workers=num_workers, pin_memory=True)
+
+    # or use: next(iter(dl))
+    # or use ds[10]
+    trainer = pl.Trainer(
+                accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+                devices=torch.cuda.device_count(),
+                fast_dev_run=8,         # run 8 batch
+                deterministic=True
+                )
+    predictions = trainer.predict(model,dl)
+    for pred in predictions:  
+        label_argm = torch.argmax(pred, dim=1).detach().cpu().numpy()
+        # for i in range(0,batch_size):
+        #     pred = predictions[i, ...]
+        #     label = torch.argmax(pred, dim=0).detach().cpu().numpy()
+        
+        # l = torch.argmax(predictions.squeeze(), dim=0).detach().cpu().numpy()
+        # label = (pred > 0.0).float()
+        # print(label_argm.shape)
+        fig, axs = plt.subplots(batch_size)
+        for i in range(batch_size):
+            lab = label_argm[i, ...]
+            dec = decode_colormap(lab)
+            axs[i].imshow(dec)
+            axs[i].axis('off')
+        # decoded = decode_colormap(label_argm, num_classes=2)
+        plt.show()
+        print("Test Debug")
+
+if __name__=="__main__":
+    # fixing the seed
+    pl.seed_everything(8)       # seed 8 shows one image
+    # get the model
+    ckpt_pth = "lightning_logs/version_8/checkpoints/epoch=9-step=60.ckpt"
+    model_f = "results/tmp/FPNresnet34-2022-10-27-16:20:25.pt"
+    ckpt = torch.load(ckpt_pth)
+    # hparams = ckpt['hyper_parameters']
+    model = Model.load_from_checkpoint(
+        model_f, 
+        # map_location=map_location
+        )
+    model.freeze()
+
+    # 4. Segment a few images!
+    predict_files = [
+            "DJI_20220404135614_0001.JPG",
+            "DJI_20220404140510_0015.JPG",
+            "DJI_20220404140802_0022.JPG"
+        ]
+
+    # generate a dataset
+    datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data')
+
+    # get the basic transform - normalization
+    preprocess_params = model.get_preprocessing_parameters()
+    mean = tuple(preprocess_params['mean'])
+    std = tuple(preprocess_params['std'])
+
+    height = 512
+    width = 512
+    augmentations = A.Compose([
+        A.RandomCrop(height, width, p=1),
+        A.Normalize(mean=mean, std=std),
+        ToTensorV2(transpose_mask=True)
+    ])
+
+    # point where we split both paths
+    img_dir = os.path.join(datadir, 'bitou_test')
+    mask_dir = os.path.join(datadir, 'bitou_binary_masks')
+    
+    # EITHER
+    # im_batch, y_hat, y = run_deterministic_images(model, augmentations, predict_files, img_dir, mask_dir, im_shape=(height, width))
+    # # invert axes
+    # im_batch = np.moveaxis(im_batch, 1, -1)
+    # y_hat = np.moveaxis(y_hat, 1, -1)
+    # y = np.moveaxis(y, 1, -1)
+    # plot3x3(im_batch, y_hat, y)
+
+    # OR
+    run_lightning_trainer_images(datadir, augmentations, model)
