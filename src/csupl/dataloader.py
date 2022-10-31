@@ -67,6 +67,7 @@ class BitouDataModule(pl.LightningDataModule):
                 num_workers : int = 1, batch_size : int =4, val_percentage : float = 0.25,
                 img_folder : str = "bitou_test", mask_folder : str = "bitou_test_masks",
                 train_transforms: Optional[Callable] = None,
+                f_ext : str = ".JPG"
                 # test_transforms: Optional[Callable] = None
                 ) -> None:
         super().__init__()
@@ -76,6 +77,7 @@ class BitouDataModule(pl.LightningDataModule):
         # self.test_dir = test_dir
         self.img_folder = img_folder
         self.mask_folder = mask_folder
+        self.f_ext = f_ext
         
         # Training and loading parameters
         self.batch_size = batch_size
@@ -93,7 +95,7 @@ class BitouDataModule(pl.LightningDataModule):
                 Same as the SegDataModule loader, but this one uses albumentations
             """
 
-            self.default_dataset = BitouDataset(self.root_dir, self.train_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder)
+            self.default_dataset = BitouDataset(self.root_dir, self.train_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder, f_ext=self.f_ext)
             
             # Splitting the dataset
             dataset_len = len(self.default_dataset)

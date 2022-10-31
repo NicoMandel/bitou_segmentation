@@ -9,12 +9,13 @@
 """
 
 import torch
+from torch.utils.data import DataLoader
 from csupl.model import Model
 import segmentation_models_pytorch as sgm
 
 # lightning
 import pytorch_lightning as pl
-from csupl.dataloader import BitouDataModule
+from csupl.dataloader import BitouDataModule, BitouDataset
 
 # loss fct
 # from torch.nn import CrossEntropyLoss
@@ -51,15 +52,15 @@ def parse_args():
 
 def default_args():
     argdict = {}
-    argdict["classes"] = 2
-    argdict["batch"] = 4
-    argdict["workers"] = 4
+    argdict["classes"] = 21
+    argdict["batch"] = 8
+    argdict["workers"] = argdict["batch"] if argdict["batch"] < 12 else 12
     argdict["save"] = True
     argdict["dev_run"] = False
     argdict["model"] = "irrelevant"
     argdict["pretrained"] = "irrelevant"
-    argdict["limit"] = 1.0
-    argdict["epochs"] = 10
+    # argdict["limit"] = 1.0
+    argdict["epochs"] = 30
 
     # height and width
     argdict["height"] = 512
@@ -82,7 +83,10 @@ if __name__=="__main__":
 
     # Dataset parameters
     root_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..' , 'data')
-
+    export_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "results", "tmp", "models", "carla")
+    now = datetime.now()
+    tim = "{}:{}:{}".format(now.hour, now.minute, now.second)
+    
     # lightning - getting the model has to be done before loading the Data, because of the size dictated by the model
     model_name = "FPN"
     encoder_name = "resnet34"
@@ -97,7 +101,7 @@ if __name__=="__main__":
 
     # ! losses: https://smp.readthedocs.io/en/latest/losses.html
     # ! logits version may be wrong here!
-    loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
+    loss = sgm.losses.JaccardLoss(loss_mode) # consider replacing smooth factor with 0 or 1
 
     # Getting the actual model
     # model = Model(model_name, encoder_name, encoder_weights, in_channels, classes)
@@ -157,28 +161,27 @@ if __name__=="__main__":
         A.RandomCrop(height, width, p=1),
         # A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
         A.Normalize(mean=mean, std=std),
-        ToTensorV2()
+        ToTensorV2(transpose_mask=True)
     ])
 
     # lightning - updated way to load the data - with a datamodule. Much simpler
     datamodule = BitouDataModule(
         root_dir,
+        img_folder= "CameraRGB",
         # "Test",
         # num_classes,
         # test_transforms=test_aug,
-        mask_folder="bitou_binary_masks",
+        mask_folder="CameraSeg",
+        f_ext = ".png",
         train_transforms=train_aug,
         batch_size=batch_size, 
         num_workers=num_workers
     )
 
     # Logger
-    now = datetime.now()
-    tim = "{}:{}:{}".format(now.hour, now.minute, now.second)
-    modelfname = "{}-{}-{}".format(model_name + encoder_name, date.today(), tim)
     logdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
     # tb_logger = pl_loggers.TensorBoardLogger(logdir, default_hp_metric=False, name="Albumentations-"+modelfname)
-    print("Logging to directory: {}".format(logdir))
+    # print("Logging to directory: {}".format(logdir))
 
     # lightning - task
     # task = SegmentationTask(model, loss, lr=lr, weight_decay=weight_decay, num_classes=classes)
@@ -188,29 +191,46 @@ if __name__=="__main__":
     # Alternative to limiting the training batches: https://pytorch-lightning.readthedocs.io/en/1.2.10/common/trainer.html#limit-train-batches
     trainer = pl.Trainer(
         # progress_bar_refresh_rate=5,
-        log_every_n_steps=2,
+        # log_every_n_steps=2,
         max_epochs=args["epochs"],
         accelerator='gpu' if torch.cuda.is_available() else None,
         devices=torch.cuda.device_count(),
         # logger=tb_logger,
         fast_dev_run=args["dev_run"],
-        limit_train_batches=args["limit"],
-        limit_val_batches=args["limit"],
+        # limit_train_batches=args["limit"],
+        # limit_val_batches=args["limit"],
         # callbacks=[LogImages(10)]
+        limit_predict_batches=1
         )
+
+    modelfname = "{}-{}-{}".format(model_name + encoder_name + "_untrained", date.today(), tim)
+    # Saving the untrained model
+    if export_model:
+        model.freeze()
+        
+        export_fpath = os.path.join(export_dir, modelfname + ".pt")
+        ds = BitouDataset(root=root_dir, transforms=test_aug, img_folder="CameraRGB", mask_folder="CameraSeg", f_ext=".png")
+        assert len(ds) > 0 
+        dl = DataLoader(ds)
+        trainer.predict(model, dl)
+        trainer.save_checkpoint(export_fpath)
+        print("Saved untrained model to: {}".format(export_fpath))
+        model.unfreeze()
+
     trainer.fit(model, datamodule=datamodule)
 
     # Testing
     # trainer.test(task, datamodule=datamodule)
 
-    # exporting the model, importing it again and then running the test suite TODO> should be done automatically from lightning
     # Exporting the model
+    modelfname = "{}-{}-{}".format(model_name + encoder_name + "_trained", date.today(), tim)
     if export_model:
         model.freeze()
-        export_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "results", "tmp")
+        # model.unfreeze()
+        
         export_fpath = os.path.join(export_dir, modelfname + ".pt")
         trainer.save_checkpoint(export_fpath)
-        print("Saved model to: {}".format(export_fpath))
+        print("Saved trained model to: {}".format(export_fpath))
         # onnx_export(model, modelfname, logdir, height=height, width=width)
 
     print("Done with the execution, Hooray! Please see Tensorboard in directory {} for more information".format(logdir))
