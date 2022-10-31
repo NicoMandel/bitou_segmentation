@@ -110,24 +110,30 @@ def run_deterministic_images(model : Model, transforms : A.Compose, img_list : l
     y_hat = torch.argmax(y_hat, dim=1).detach().cpu().numpy()
     return im_batch.detach().numpy(), y_hat, m_batch.detach().numpy()
 
-def plot3x3(input, output, mask):
-    fig, axs = plt.subplots(3,3)
+def plot3x4(input, mask, pred_trained, pred_untrained, fnames, num_classes=21):
+    fig, axs = plt.subplots(3,4)
     for i in range(3):
         axs[i,0].imshow(input[i, ...])
         axs[i,0].axis('off')
-        axs[i,0].set_title('Original')
+        axs[i,0].set_title('Original {}'.format(fnames[i]))
 
         m = mask[i, ...]
-        m = decode_colormap(m.squeeze())
+        m = decode_colormap(m.squeeze(), num_classes=num_classes)
         axs[i,1].imshow(m)
         axs[i,1].axis('off')
         axs[i,1].set_title('Mask')
 
-        out = output[i, ...]
-        out = decode_colormap(out)
-        axs[i,2].imshow(out)
+        untr = pred_untrained[i, ...]
+        untr = decode_colormap(untr, num_classes=num_classes)
+        axs[i,2].imshow(untr)
         axs[i,2].axis('off')
-        axs[i,2].set_title('Output')
+        axs[i,2].set_title('Untrained')
+
+        tr = pred_trained[i, ...]
+        tr = decode_colormap(tr, num_classes=num_classes)
+        axs[i,3].imshow(tr)
+        axs[i,3].axis('off')
+        axs[i,3].set_title('Trained')
     plt.show()
 
 
@@ -169,24 +175,33 @@ def run_lightning_trainer_images(datadir, augmentations, model):
 
 if __name__=="__main__":
     # fixing the seed
-    pl.seed_everything(8)       # seed 8 shows one image
+    pl.seed_everything(42)     
     # get the model
-    ckpt_pth = "lightning_logs/version_8/checkpoints/epoch=9-step=60.ckpt"
-    model_f = "results/tmp/FPNresnet34-2022-10-27-16:20:25.pt"
-    ckpt = torch.load(ckpt_pth)
+    untrained_model = "results/tmp/models/carla/FPNresnet34_untrained-2022-10-31-15:19:17.pt"
+    trained_model = "results/tmp/models/carla/FPNresnet34_trained-2022-10-31-15:19:17.pt"
+    # ckpt_pth = "lightning_logs/version_8/checkpoints/epoch=9-step=60.ckpt"
+    # model_f = "results/tmp/FPNresnet34-2022-10-27-16:20:25.pt"
+    # ckpt = torch.load(ckpt_pth)
     # hparams = ckpt['hyper_parameters']
     model = Model.load_from_checkpoint(
-        model_f, 
+        untrained_model,
         # map_location=map_location
         )
     model.freeze()
 
     # 4. Segment a few images!
+    # predict_files = [
+    #         "DJI_20220404135614_0001.JPG",
+    #         "DJI_20220404140510_0015.JPG",
+    #         "DJI_20220404140802_0022.JPG"
+    #     ]
+    
+    # Carla Prediction files
     predict_files = [
-            "DJI_20220404135614_0001.JPG",
-            "DJI_20220404140510_0015.JPG",
-            "DJI_20220404140802_0022.JPG"
-        ]
+        "F61-14.png",
+        "F69-25.png",
+        "F65-32.png",
+    ]
 
     # generate a dataset
     datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data')
@@ -205,16 +220,23 @@ if __name__=="__main__":
     ])
 
     # point where we split both paths
-    img_dir = os.path.join(datadir, 'bitou_test')
-    mask_dir = os.path.join(datadir, 'bitou_binary_masks')
+    img_dir = os.path.join(datadir, 'CameraRGB')
+    mask_dir = os.path.join(datadir, 'CameraSeg')
     
     # EITHER
-    # im_batch, y_hat, y = run_deterministic_images(model, augmentations, predict_files, img_dir, mask_dir, im_shape=(height, width))
+    im_batch, y_hat_untrained, y = run_deterministic_images(model, augmentations, predict_files, img_dir, mask_dir, im_shape=(height, width))
+    model = Model.load_from_checkpoint(
+        trained_model,
+        # map_location=map_location
+        )
+    model.freeze()
+    _, y_hat_trained, _ = run_deterministic_images(model, augmentations, predict_files, img_dir, mask_dir, im_shape=(height, width))
     # # invert axes
-    # im_batch = np.moveaxis(im_batch, 1, -1)
-    # y_hat = np.moveaxis(y_hat, 1, -1)
-    # y = np.moveaxis(y, 1, -1)
-    # plot3x3(im_batch, y_hat, y)
+    im_batch = np.moveaxis(im_batch, 1, -1)
+    # y_hat_trained = np.moveaxis(y_hat_trained, 1, -1)
+    # y_hat_untrained = np.moveaxis(y_hat_trained, 1, -1)
+    y = np.moveaxis(y, 1, -1)
+    plot3x4(im_batch, y, y_hat_trained, y_hat_untrained, predict_files)
 
     # OR
-    run_lightning_trainer_images(datadir, augmentations, model)
+    # run_lightning_trainer_images(datadir, augmentations, model)

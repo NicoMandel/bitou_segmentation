@@ -37,7 +37,7 @@ class Model(pl.LightningModule):
 
         # accuracy
         self.accuracy = torchmetrics.JaccardIndex(num_classes=self.classes)
-        self.save_hyperparameters(ignore=['loss'])
+        self.save_hyperparameters()
     
     # Model-specific steps
     def forward(self, x):
