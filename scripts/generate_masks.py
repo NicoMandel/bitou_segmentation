@@ -41,36 +41,43 @@ def get_polygon_coordinates(json_dict : dict) -> dict:
     """
     poly_dict = {}
     for _, v in json_dict.items():
+        if len(v['regions']) > 1:
+            print(v['filename'])
         if v['regions']:
-            x = v['regions'][0]['shape_attributes']['all_points_x']
-            y = v['regions'][0]['shape_attributes']['all_points_y']
-            xy = list(zip(x, y))
+            xy_list = []
+            for reg in v['regions']:
+                x = reg['shape_attributes']['all_points_x']
+                y = reg['shape_attributes']['all_points_y']
+                xy = list(zip(x, y))
+                xy_list.append(xy)
         else:
             poly_dict[v['filename'].split('.')[0]] = []
-        poly_dict[v['filename'].split('.')[0]] = xy
+        poly_dict[v['filename'].split('.')[0]] = xy_list
     
     return poly_dict
 
-def generate_mask_image(polygon_coord : list, orig_img : Image.Image) -> Image.Image:
+def generate_mask_image(mask_img : Image.Image, polygon_coord : list, whiteout : bool = False) -> Image.Image:
     """
-        Function to generate a polygon for a single image and return the image
+        Function to generate a single polygon for a single image and return the image
     """
-    imsize = orig_img.size
-    mask_img = Image.new("RGB", imsize)              # Image modes from Pillow: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-modes
+    # Image modes from Pillow: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-modes
     d = ImageDraw.Draw(mask_img)
-    d.polygon(polygon_coord, fill=(1,0,0))
+    d.polygon(polygon_coord, fill=(255, 255, 255) if whiteout else (1,0,0))
     return mask_img
 
 
-def write_masks(polygon_coord: dict, img_list : list, input_dir : Path, mask_dir : Path, f_ext : string):
+def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, f_ext : string):
     """
         function to load the images and write the mask
     """
 
-    for k, poly_coord in tqdm(polygon_coord.items()):
+    for k, poly_coord_list in tqdm(polygon_coord.items()):
         orig_path = input_dir / ".".join([k,f_ext])
         orig_img = Image.open(orig_path)
-        mask_im = generate_mask_image(poly_coord, orig_img)
+        imsize = orig_img.size
+        mask_im = Image.new("RGB", imsize)
+        for poly_coord in poly_coord_list:
+            mask_im = generate_mask_image(mask_im, poly_coord)
         mask_path = mask_dir / ".".join([k, f_ext])
         mask_im.save(mask_path, "png")
 
@@ -92,4 +99,4 @@ if __name__=="__main__":
 
     json_metadata = json_dict["_via_img_metadata"]
     polygon_dict = get_polygon_coordinates(json_metadata)
-    write_masks(polygon_dict, img_list, img_directory, mask_directory, f_ext)
+    write_masks(polygon_dict, img_directory, mask_directory, f_ext)
