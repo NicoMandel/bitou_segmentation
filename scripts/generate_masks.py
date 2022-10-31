@@ -31,6 +31,7 @@ def parse_args():
     parser.add_argument("-o", "--output", help="Directory where masks should be output to", type=str, default=def_output)
     parser.add_argument("-c", "--config", help="Location of the config file. If not specified, will look for a .json in the input directory", default=None)
     parser.add_argument("--file-extension", help="Image file extension, without dot. Defaults to JPG", default="JPG")
+    parser.add_argument("--whiteout", action="store_true", help="If set, will whiteout the mask")
     args = vars(parser.parse_args())
     return args
 
@@ -66,7 +67,7 @@ def generate_mask_image(mask_img : Image.Image, polygon_coord : list, whiteout :
     return mask_img
 
 
-def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, f_ext : string):
+def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, f_ext : string, whiteout : bool):
     """
         function to load the images and write the mask
     """
@@ -77,7 +78,7 @@ def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, f_ext : 
         imsize = orig_img.size
         mask_im = Image.new("RGB", imsize)
         for poly_coord in poly_coord_list:
-            mask_im = generate_mask_image(mask_im, poly_coord)
+            mask_im = generate_mask_image(mask_im, poly_coord, whiteout)
         mask_path = mask_dir / ".".join([k, f_ext])
         mask_im.save(mask_path, "png")
 
@@ -87,6 +88,7 @@ if __name__=="__main__":
     img_directory = Path(args["input"])
     mask_directory = Path(args["output"])
     f_ext = args["file_extension"]
+    whiteout = args["whiteout"]
 
     img_list = list([x.stem for x in img_directory.glob("*."+f_ext)])
     if args["config"] is None:
@@ -99,4 +101,4 @@ if __name__=="__main__":
 
     json_metadata = json_dict["_via_img_metadata"]
     polygon_dict = get_polygon_coordinates(json_metadata)
-    write_masks(polygon_dict, img_directory, mask_directory, f_ext)
+    write_masks(polygon_dict, img_directory, mask_directory, f_ext, whiteout)
