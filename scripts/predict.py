@@ -58,9 +58,12 @@ def decode_colormap(labels, num_classes=2):
         return colour_map
 
 def alternative_decode_colormap(label, num_classes=2):
-    m = np.zeros_like(label)
+    l = np.moveaxis(label, 0, -1).squeeze()
+    h = l.shape[0]
+    w = l.shape[1]
+    m = np.zeros((h,w, 3)).astype(np.uint8)
     for idx in range(0, num_classes):
-        m[label == idx] = colour_code[idx]
+        m[l == idx] = colour_code[idx]
     return m
 
 def load_image(path : str):
@@ -92,12 +95,14 @@ def run_deterministic_images(model : Model, transforms : A.Compose, img_list : l
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     batch_shape = tuple([len(img_list), 3] + list(im_shape))
     im_batch = torch.zeros(batch_shape)
+    # im_batch_np = np.zeros(batch_shape)
     mask_batch_shape = tuple([len(img_list), 1] + list(im_shape))
     m_batch = torch.zeros(mask_batch_shape)
     model.eval()
     model.to(device)
     for i, img in tqdm(enumerate(img_list)):
         im, mask = load_image_and_mask(img_dir, mask_dir, img)
+        # im_batch_np[i, ...] = im
         out = transforms(image = im, mask = mask)
         im_batch[i, ...] = out['image']
         m_batch[i, ...] = out['mask']
@@ -118,23 +123,27 @@ def plot3x4(input, mask, pred_trained, pred_untrained, fnames, num_classes=21):
         axs[i,0].set_title('Original {}'.format(fnames[i]))
 
         m = mask[i, ...]
-        m = decode_colormap(m.squeeze(), num_classes=num_classes)
+        m = decode_colormap(m, num_classes=num_classes)
+        # m = alternative_decode_colormap(m, num_classes=num_classes)
         axs[i,1].imshow(m)
         axs[i,1].axis('off')
         axs[i,1].set_title('Mask')
 
         untr = pred_untrained[i, ...]
         untr = decode_colormap(untr, num_classes=num_classes)
+        # untr = alternative_decode_colormap(untr, num_classes=num_classes)
         axs[i,2].imshow(untr)
         axs[i,2].axis('off')
         axs[i,2].set_title('Untrained')
 
         tr = pred_trained[i, ...]
         tr = decode_colormap(tr, num_classes=num_classes)
+        # tr = alternative_decode_colormap(tr, num_classes=num_classes)
         axs[i,3].imshow(tr)
         axs[i,3].axis('off')
         axs[i,3].set_title('Trained')
     plt.show()
+    print("test Debug")
 
 
 def run_lightning_trainer_images(datadir, augmentations, model):
@@ -235,7 +244,7 @@ if __name__=="__main__":
     im_batch = np.moveaxis(im_batch, 1, -1)
     # y_hat_trained = np.moveaxis(y_hat_trained, 1, -1)
     # y_hat_untrained = np.moveaxis(y_hat_trained, 1, -1)
-    y = np.moveaxis(y, 1, -1)
+    # y = np.moveaxis(y, 1, -1)
     plot3x4(im_batch, y, y_hat_trained, y_hat_untrained, predict_files)
 
     # OR
