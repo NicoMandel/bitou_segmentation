@@ -9,12 +9,13 @@
 """
 
 import torch
+from torch.utils.data import DataLoader
 from csupl.model import Model
 import segmentation_models_pytorch as sgm
 
 # lightning
 import pytorch_lightning as pl
-from csupl.dataloader import BitouDataModule
+from csupl.dataloader import BitouDataModule, BitouDataset
 
 # loss fct
 # from torch.nn import CrossEntropyLoss
@@ -52,14 +53,14 @@ def parse_args():
 def default_args():
     argdict = {}
     argdict["classes"] = 2
-    argdict["batch"] = 4
-    argdict["workers"] = 4
+    argdict["batch"] = 6
+    argdict["workers"] = argdict["batch"] if argdict["batch"] < 12 else 12
     argdict["save"] = True
     argdict["dev_run"] = False
     argdict["model"] = "irrelevant"
     argdict["pretrained"] = "irrelevant"
-    argdict["limit"] = 1.0
-    argdict["epochs"] = 10
+    # argdict["limit"] = 1.0
+    argdict["epochs"] = 30
 
     # height and width
     argdict["height"] = 512
@@ -81,7 +82,10 @@ if __name__=="__main__":
     export_model = args["save"]
 
     # Dataset parameters
-    root_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..' , 'data')
+    root_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..' , 'data', 'bitou_balance')
+    now = datetime.now()
+    tim = "{}:{}:{}".format(now.hour, now.minute, now.second)
+    export_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "results", "tmp", "models", "bitou")
 
     # lightning - getting the model has to be done before loading the Data, because of the size dictated by the model
     model_name = "FPN"
@@ -110,10 +114,8 @@ if __name__=="__main__":
 
     model = Model(model_name, encoder_name, encoder_weights, in_channels, classes,      # model parameters
                 loss=loss, lr = lr, weight_decay=weight_decay                           # task parameters
-                )
+                )   
 
-    # Transform probability
-    p = 0.3
     # Pytorch transform parameters
     preprocess_params = model.get_preprocessing_parameters()
     mean = tuple(preprocess_params['mean'])
@@ -122,13 +124,16 @@ if __name__=="__main__":
     height = args["height"]
     width = args["width"]
 
+    # Transform probability
+    p = 0.3
     train_aug = A.Compose([
             # Spatial Transforms
-        A.OneOf([
-            # A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
-            A.RandomCrop(height, width, p=1),
-            # A.Resize(height, width, p=1)
-        ], p=1),
+        # A.OneOf([
+        #     A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
+        #     A.RandomCrop(height, width, p=1),
+        #     # A.Resize(height, width, p=1)
+        # ], p=p),
+        A.Resize(height, width, p=1),
         A.OneOf([
             A.VerticalFlip(p=p),
             A.Rotate(limit=179, p=p),
@@ -154,10 +159,11 @@ if __name__=="__main__":
     ])
 
     test_aug = A.Compose([
-        A.RandomCrop(height, width, p=1),
+        # A.RandomCrop(height, width, p=1),
         # A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
+        A.Resize(height, width, p=1),
         A.Normalize(mean=mean, std=std),
-        ToTensorV2()
+        ToTensorV2(transpose_mask=True)
     ])
 
     # lightning - updated way to load the data - with a datamodule. Much simpler
@@ -166,19 +172,17 @@ if __name__=="__main__":
         # "Test",
         # num_classes,
         # test_transforms=test_aug,
-        mask_folder="bitou_binary_masks",
+        img_folder="orig",
+        mask_folder="mask",
         train_transforms=train_aug,
         batch_size=batch_size, 
         num_workers=num_workers
     )
 
     # Logger
-    now = datetime.now()
-    tim = "{}:{}:{}".format(now.hour, now.minute, now.second)
-    modelfname = "{}-{}-{}".format(model_name + encoder_name, date.today(), tim)
-    logdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
+    # logdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
     # tb_logger = pl_loggers.TensorBoardLogger(logdir, default_hp_metric=False, name="Albumentations-"+modelfname)
-    print("Logging to directory: {}".format(logdir))
+    # print("Logging to directory: {}".format(logdir))
 
     # lightning - task
     # task = SegmentationTask(model, loss, lr=lr, weight_decay=weight_decay, num_classes=classes)
@@ -188,16 +192,32 @@ if __name__=="__main__":
     # Alternative to limiting the training batches: https://pytorch-lightning.readthedocs.io/en/1.2.10/common/trainer.html#limit-train-batches
     trainer = pl.Trainer(
         # progress_bar_refresh_rate=5,
-        log_every_n_steps=2,
+        # log_every_n_steps=2,
         max_epochs=args["epochs"],
         accelerator='gpu' if torch.cuda.is_available() else None,
         devices=torch.cuda.device_count(),
         # logger=tb_logger,
         fast_dev_run=args["dev_run"],
-        limit_train_batches=args["limit"],
-        limit_val_batches=args["limit"],
+        # limit_train_batches=args["limit"],
+        # limit_val_batches=args["limit"],
+        limit_predict_batches=1,
         # callbacks=[LogImages(10)]
         )
+
+    # Exporting the untrained model
+    modelfname = "{}-{}-{}".format(model_name + encoder_name +"_untrained_balance", date.today(), tim)
+    if export_model:
+        model.freeze()
+        export_fpath = os.path.join(export_dir, modelfname +".pt")
+        ds = BitouDataset(root_dir, transforms=test_aug, img_folder="orig", mask_folder="mask", f_ext=".JPG")
+        assert len(ds) > 0
+        dl = DataLoader(ds)
+        trainer.predict(model, dl)
+        trainer.save_checkpoint(export_fpath)
+        print(f"Saved Untrained model to {export_fpath}")
+        model.unfreeze()
+
+    # actual training step    
     trainer.fit(model, datamodule=datamodule)
 
     # Testing
@@ -205,12 +225,12 @@ if __name__=="__main__":
 
     # exporting the model, importing it again and then running the test suite TODO> should be done automatically from lightning
     # Exporting the model
+    modelfname = "{}-{}-{}".format(model_name + encoder_name +"_trained_balance", date.today(), tim)
     if export_model:
         model.freeze()
-        export_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "results", "tmp")
         export_fpath = os.path.join(export_dir, modelfname + ".pt")
         trainer.save_checkpoint(export_fpath)
         print("Saved model to: {}".format(export_fpath))
         # onnx_export(model, modelfname, logdir, height=height, width=width)
 
-    print("Done with the execution, Hooray! Please see Tensorboard in directory {} for more information".format(logdir))
+    # print("Done with the execution, Hooray! Please see Tensorboard in directory {} for more information".format(logdir))

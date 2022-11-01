@@ -109,11 +109,15 @@ class BitouDataModule(pl.LightningDataModule):
 
     # Dataloaders:
     def train_dataloader(self):
-        dl = DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True)
+        dl = DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers,
+        # pin_memory=True
+        )
         return dl
     
     def val_dataloader(self):
-        dl = DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True)
+        dl = DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers,
+        # pin_memory=True
+        )
         return dl
     
     # def test_dataloader(self):
