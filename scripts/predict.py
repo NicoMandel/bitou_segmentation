@@ -18,6 +18,23 @@ import matplotlib.pyplot as plt
 
 from PIL import Image
 
+class InverseNormalizationAlternative(object):
+
+    def __init__(self, mean=(0.485, 0.456, 0.406), std=(0.229,0.224, 0.225)):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, image, target):
+        z = image * torch.tensor(self.std).view(3, 1, 1)
+        z = z + torch.tensor(self.mean).view(3,1,1)
+        return z, target
+    
+    def __repr__(self):
+        return type(self).__name__
+    
+    def getTransformParams(self):
+        return {"mean": self.mean, "std": self.std}
+
 colour_code = np.array([(220, 220, 220), (128, 0, 0), (0, 128, 0),  # class
                         (192, 0, 0), (64, 128, 0), (192, 128, 0),   # background
                         (70, 70, 70),      # Buildings
@@ -108,27 +125,56 @@ def run_deterministic_images(model : Model, transforms : A.Compose, img_list : l
     with torch.no_grad():
         y_hat = model(x)
     y_hat = torch.argmax(y_hat, dim=1).detach().cpu().numpy()
-    return im_batch.detach().numpy(), y_hat, m_batch.detach().numpy()
+    return im_batch.detach().numpy(), y_hat, m_batch.detach().squeeze().numpy()
 
-def plot3x3(input, output, mask):
+def plot3x3(input, mask, output, _, fnames, num_classes =2):
     fig, axs = plt.subplots(3,3)
     for i in range(3):
         axs[i,0].imshow(input[i, ...])
         axs[i,0].axis('off')
-        axs[i,0].set_title('Original')
+        axs[i,0].set_title(f"Original: {fnames[i]}")
 
         m = mask[i, ...]
-        m = decode_colormap(m.squeeze())
+        m = decode_colormap(m, num_classes)
         axs[i,1].imshow(m)
         axs[i,1].axis('off')
         axs[i,1].set_title('Mask')
 
         out = output[i, ...]
-        out = decode_colormap(out)
+        out = decode_colormap(out, num_classes)
         axs[i,2].imshow(out)
         axs[i,2].axis('off')
         axs[i,2].set_title('Output')
     plt.show()
+    print("Test debug line")
+
+
+def plot3x4(input, mask, y_tr, y_untr, fnames, num_classes = 2):
+    fig, axs = plt.subplots(3,4)
+    for i in range(3):
+        axs[i,0].imshow(input[i, ...])
+        axs[i,0].axis('off')
+        axs[i,0].set_title(f"Original: {fnames[i]}")
+
+        m = mask[i, ...]
+        m = decode_colormap(m, num_classes)
+        axs[i,1].imshow(m)
+        axs[i,1].axis('off')
+        axs[i,1].set_title('Mask')
+
+        untr = y_untr[i, ...]
+        untr = decode_colormap(untr, num_classes)
+        axs[i,2].imshow(untr)
+        axs[i,2].axis('off')
+        axs[i,2].set_title('Untrained')
+
+        tr = y_tr[i, ...]
+        tr = decode_colormap(tr, num_classes)
+        axs[i,3].imshow(tr)
+        axs[i,3].axis('off')
+        axs[i,3].set_title('Trained')
+    plt.show()
+    print("Test Debug Line")
 
 
 def run_lightning_trainer_images(datadir, augmentations, model):
@@ -167,29 +213,80 @@ def run_lightning_trainer_images(datadir, augmentations, model):
         plt.show()
         print("Test Debug")
 
+def get_bitou_standard_case():
+    predict_files = [
+        "DJI_20220404135614_0001.JPG",
+        "DJI_20220404140510_0015.JPG",
+        "DJI_20220404140802_0022.JPG"
+    ]
+    model_f = "results/tmp/models/bitou/FPNresnet34-2022-10-27-16:20:25.pt"
+    model_f2 = None
+    datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data')
+    img_dir = os.path.join(datadir, 'bitou_test')
+    mask_dir = os.path.join(datadir, 'bitou_binary_masks')
+    num_classes = 2
+    plot_fn = plot3x3
+    return predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn
+
+
+def get_bitou_crop_case():
+    predict_files = [
+        "DJI_20220404135614_0001.JPG",
+        "DJI_20220404140510_0015.JPG",
+        "DJI_20220404140802_0022.JPG"
+    ]
+    model_f = "results/tmp/models/bitou/FPNresnet34_trained_crop-2022-11-01-11:12:2.pt"
+    model_f2 = "results/tmp/models/bitou/FPNresnet34_untrained_crop-2022-11-01-11:12:2.pt"
+    datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data', 'bitou_crop')
+    img_dir = os.path.join(datadir, 'orig')
+    mask_dir = os.path.join(datadir, 'mask')
+    num_classes = 2
+    plot_fn = plot3x4
+    return predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn
+
+def get_bitou_balance_case():
+    predict_files = [
+        "DJI_20220404135614_0001.JPG",
+        "DJI_20220404140510_0015.JPG",
+        "DJI_20220404140802_0022.JPG"
+    ]
+    model_f = "results/tmp/models/bitou/FPNresnet34_trained_balance-2022-11-01-11:19:19.pt"
+    model_f2 = "results/tmp/models/bitou/FPNresnet34_untrained_balance-2022-11-01-11:19:19.pt"
+    datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data', 'bitou_balance')
+    img_dir = os.path.join(datadir, 'orig')
+    mask_dir = os.path.join(datadir, 'mask')
+    num_classes = 2
+    plot_fn = plot3x4
+    return predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn
+
+def get_carla_case():
+    predict_files = [
+        "F61-14.png",
+        "F69-25.png",
+        "F65-32.png"
+    ]
+    model_f = "results/tmp/models/carla/FPNresnet34_trained-2022-10-31-15:19:17.pt"
+    model_f2 = "results/tmp/models/carla/FPNresnet34_untrained-2022-10-31-15:19:17.pt"
+    datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data')
+    img_dir = os.path.join(datadir, 'CameraRGB')
+    mask_dir = os.path.join(datadir, 'CameraSeg')
+    num_classes = 2
+    plot_fn = plot3x4
+    return predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn
+
+
+
 if __name__=="__main__":
     # fixing the seed
     pl.seed_everything(8)       # seed 8 shows one image
-    # get the model
-    ckpt_pth = "lightning_logs/version_8/checkpoints/epoch=9-step=60.ckpt"
-    model_f = "results/tmp/FPNresnet34-2022-10-27-16:20:25.pt"
-    ckpt = torch.load(ckpt_pth)
-    # hparams = ckpt['hyper_parameters']
+
+    predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn = get_bitou_balance_case()
+
     model = Model.load_from_checkpoint(
         model_f, 
         # map_location=map_location
         )
     model.freeze()
-
-    # 4. Segment a few images!
-    predict_files = [
-            "DJI_20220404135614_0001.JPG",
-            "DJI_20220404140510_0015.JPG",
-            "DJI_20220404140802_0022.JPG"
-        ]
-
-    # generate a dataset
-    datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data')
 
     # get the basic transform - normalization
     preprocess_params = model.get_preprocessing_parameters()
@@ -199,22 +296,23 @@ if __name__=="__main__":
     height = 512
     width = 512
     augmentations = A.Compose([
-        A.RandomCrop(height, width, p=1),
+        A.Resize(height, width, p=1),
         A.Normalize(mean=mean, std=std),
         ToTensorV2(transpose_mask=True)
     ])
-
-    # point where we split both paths
-    img_dir = os.path.join(datadir, 'bitou_test')
-    mask_dir = os.path.join(datadir, 'bitou_binary_masks')
     
     # EITHER
-    # im_batch, y_hat, y = run_deterministic_images(model, augmentations, predict_files, img_dir, mask_dir, im_shape=(height, width))
+    im_batch, y_tr, y = run_deterministic_images(model, augmentations, predict_files, img_dir, mask_dir, im_shape=(height, width))
+    if model_f2 is not None:
+        model = Model.load_from_checkpoint(model_f2)
+        model.freeze()
+        _, y_untr, _ = run_deterministic_images(model, augmentations, predict_files, img_dir, mask_dir, (height, width))
+    else:
+        y_untr = None
     # # invert axes
-    # im_batch = np.moveaxis(im_batch, 1, -1)
+    im_batch = np.moveaxis(im_batch, 1, -1)
     # y_hat = np.moveaxis(y_hat, 1, -1)
     # y = np.moveaxis(y, 1, -1)
-    # plot3x3(im_batch, y_hat, y)
+    plot_fn(im_batch, y, y_tr, y_untr, predict_files, num_classes)     
 
-    # OR
-    run_lightning_trainer_images(datadir, augmentations, model)
+    print("Test Debug Line")
