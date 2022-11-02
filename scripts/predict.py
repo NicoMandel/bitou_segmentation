@@ -250,8 +250,12 @@ def get_bitou_balance_case():
         "DJI_20220404140510_0015.JPG",
         "DJI_20220404140802_0022.JPG"
     ]
-    model_f = "results/tmp/models/bitou/FPNresnet34_trained_balance-2022-11-01-11:19:19.pt"
-    model_f2 = "results/tmp/models/bitou/FPNresnet34_untrained_balance-2022-11-01-11:19:19.pt"
+    # model_f = "results/tmp/models/bitou/FPNresnet34_trained_balance-2022-11-01-11:19:19.pt"
+    # model_f2 = "results/tmp/models/bitou/FPNresnet34_untrained_balance-2022-11-01-11:19:19.pt"
+    # model_f = "results/tmp/models/bitou/FPNresnet34_trained_balance-2022-11-02-9:40:55.pt"
+    # model_f2 = "results/tmp/models/bitou/FPNresnet34_untrained_balance-2022-11-02-9:40:55.pt"
+    model_f = "results/tmp/models/bitou/FPNresnet34_trained_balance-2022-11-02-10:17:13.pt"
+    model_f2 = "results/tmp/models/bitou/FPNresnet34_untrained_balance-2022-11-02-10:17:13.pt"
     datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data', 'bitou_balance')
     img_dir = os.path.join(datadir, 'orig')
     mask_dir = os.path.join(datadir, 'mask')
@@ -286,7 +290,6 @@ if __name__=="__main__":
         model_f, 
         # map_location=map_location
         )
-    model.freeze()
 
     # get the basic transform - normalization
     preprocess_params = model.get_preprocessing_parameters()
@@ -305,7 +308,6 @@ if __name__=="__main__":
     im_batch, y_tr, y = run_deterministic_images(model, augmentations, predict_files, img_dir, mask_dir, im_shape=(height, width))
     if model_f2 is not None:
         model = Model.load_from_checkpoint(model_f2)
-        model.freeze()
         _, y_untr, _ = run_deterministic_images(model, augmentations, predict_files, img_dir, mask_dir, (height, width))
     else:
         y_untr = None

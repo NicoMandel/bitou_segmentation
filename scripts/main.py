@@ -102,6 +102,7 @@ if __name__=="__main__":
     # ! losses: https://smp.readthedocs.io/en/latest/losses.html
     # ! logits version may be wrong here!
     loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
+    # loss = sgm.losses.JaccardLoss(loss_mode)
 
     # Getting the actual model
     # model = Model(model_name, encoder_name, encoder_weights, in_channels, classes)
@@ -218,6 +219,8 @@ if __name__=="__main__":
         model.unfreeze()
 
     # actual training step    
+    # Freeze backbone
+    model.freeze_encoder()
     trainer.fit(model, datamodule=datamodule)
 
     # Testing

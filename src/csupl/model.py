@@ -38,6 +38,24 @@ class Model(pl.LightningModule):
         # accuracy
         self.accuracy = torchmetrics.JaccardIndex(num_classes=self.classes)
         self.save_hyperparameters()
+
+    def freeze_encoder(self) -> None:
+        """
+            Function to freeze the backbone (encoder) weights during training.
+            Sets trainable parameters to false
+        """
+        for child in self.model.encoder.children():
+            for param in child.parameters():
+                param.requires_grad = False
+
+    def unfreeze_encoder(self) -> None:
+        """
+            Function to unfreeze the backbone (encoder) for training.
+            Sets trainable parameters to true
+        """
+        for child in self.model.encoder.children():
+            for param in child.parameters():
+                param.requires_grad = True
     
     # Model-specific steps
     def forward(self, x):
@@ -72,6 +90,7 @@ class Model(pl.LightningModule):
         x, y = batch
         out = self._shared_step(x)
         J = self.loss(out, y.float())  
+        # J = self.loss(out, y.long())
         self.log_dict({'loss/train': J}, prog_bar=True, logger=True, on_step=True)
         return {'loss': J}
     
