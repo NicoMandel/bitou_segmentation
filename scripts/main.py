@@ -27,8 +27,8 @@ def plot_sample(sample):
     plt.show()
     print("Test debug line")
 
-def visualize_results(model, test_dl):
-    batch = next(iter(test_dl))
+def visualize_results(model, dl):
+    batch = next(iter(dl))
     with torch.no_grad():
         model.eval()
         logits = model(batch["image"])
@@ -55,6 +55,8 @@ def visualize_results(model, test_dl):
         plt.show()
 
 if __name__=="__main__":
+    save_model = True
+    export_dir = "results/tmp/models/pets"
     root = "data"
     # SimpleOxfordPetDataset.download(root)
     train_dataset = SimpleOxfordPetDataset(root, "train")
@@ -63,7 +65,7 @@ if __name__=="__main__":
 
     print("Train size {}\t Val Size {}\t Test Size {}".format(len(train_dataset), len(val_dataset), len(test_dataset)))
 
-    batch_size = 16
+    batch_size = 24
     num_workers = batch_size if batch_size < 16 else 16
     train_dl = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers,  shuffle=True)
     val_dl = DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
@@ -86,8 +88,17 @@ if __name__=="__main__":
     trainer = pl.Trainer(
         accelerator= "gpu" if torch.cuda.is_available() else None,
         devices=torch.cuda.device_count(),
-        max_epochs=5
+        max_epochs=5,
+        limit_predict_batches=1,
     )
+
+    if save_model:
+        model.eval()
+        trainer.predict(model, train_dl)
+        modelpath = export_dir + "/pets_untrained.pt"
+        trainer.save_checkpoint(modelpath)
+        print(f"model saved to {modelpath}")
+        model.unfreeze()
 
     # Training
     trainer.fit(
@@ -103,4 +114,11 @@ if __name__=="__main__":
     test_metrics = trainer.test(model, dataloaders=test_dl, verbose=False)
 
     visualize_results(model, test_dl)
+    
+    # Saving the model
+    if save_model:
+        model.eval()
+        modelpath = export_dir + "/pets_trained.pt"
+        trainer.save_checkpoint(modelpath)
+        print(f"model saved to {modelpath}")
     print("Test Debug line")

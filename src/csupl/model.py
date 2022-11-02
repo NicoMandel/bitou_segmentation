@@ -20,9 +20,12 @@ class PetModel(pl.LightningModule):
         # Loss
         # explanation [here](https://medium.com/ai-salon/understanding-dice-loss-for-crisp-boundary-detection-bb30c2e5f62b)
         self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        
+        # for saving the model
+        self.save_hyperparameters()
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.001)        #! changed LR from the original value of 0.0001
+        return torch.optim.Adam(self.parameters(), lr=0.0001)        #! changed LR from the original value of 0.0001
 
     def forward(self, image):
         # image normalization
@@ -96,6 +99,11 @@ class PetModel(pl.LightningModule):
 
     def test_epoch_end(self, outputs):
         return self.shared_epoch_end(outputs, "test")
+
+    # # prediction
+    def predict_step(self, batch, batch_idx, dataloader_idx : int =0):
+        logits = self(batch['image'])
+        return logits
 
     # helper functions
     def _check_image(self, image):
