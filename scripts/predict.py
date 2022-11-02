@@ -1,320 +1,59 @@
-# The basic semantic segmentation as outlined in the pytorch flash documentation [here](https://lightning-flash.readthedocs.io/en/latest/reference/semantic_segmentation.html)
-
 import torch
-import numpy as np
-import os.path
 
-import pytorch_lightning as pl
-# from flash.core.data.utils import download_data
-from csupl.model import Model
-from csupl.dataloader import BitouDataset
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
+from csupl.model import PetModel
+from segmentation_models_pytorch.datasets import SimpleOxfordPetDataset
+
 from torch.utils.data import DataLoader
-
-import cv2
-from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-from PIL import Image
-
-class InverseNormalizationAlternative(object):
-
-    def __init__(self, mean=(0.485, 0.456, 0.406), std=(0.229,0.224, 0.225)):
-        self.mean = mean
-        self.std = std
-
-    def __call__(self, image, target):
-        z = image * torch.tensor(self.std).view(3, 1, 1)
-        z = z + torch.tensor(self.mean).view(3,1,1)
-        return z, target
-    
-    def __repr__(self):
-        return type(self).__name__
-    
-    def getTransformParams(self):
-        return {"mean": self.mean, "std": self.std}
-
-colour_code = np.array([(220, 220, 220), (128, 0, 0), (0, 128, 0),  # class
-                        (192, 0, 0), (64, 128, 0), (192, 128, 0),   # background
-                        (70, 70, 70),      # Buildings
-                        (190, 153, 153),   # Fences
-                        (72, 0, 90),       # Other
-                        (220, 20, 60),     # Pedestrians
-                        (153, 153, 153),   # Poles
-                        (157, 234, 50),    # RoadLines
-                        (128, 64, 128),    # Roads
-                        (244, 35, 232),    # Sidewalks
-                        (107, 142, 35),    # Vegetation
-                        (0, 0, 255),      # Vehicles
-                        (102, 102, 156),  # Walls
-                        (220, 220, 0),
-                        (220, 0, 220),
-                        (0, 220, 220),
-                        (110, 110, 0),
-                        (0, 110, 110)
-                                        ])  # background
-
-
-def decode_colormap(labels, num_classes=2):
-        """
-            Function to decode the colormap. Receives a numpy array of the correct label
-        """
-        r = np.zeros_like(labels).astype(np.uint8)
-        g = np.zeros_like(labels).astype(np.uint8)
-        b = np.zeros_like(labels).astype(np.uint8)
-        for class_idx in range(0, num_classes):
-            idx = labels == class_idx
-            r[idx] = colour_code[class_idx, 0]
-            g[idx] = colour_code[class_idx, 1]
-            b[idx] = colour_code[class_idx, 2]
-        colour_map = np.stack([r, g, b], axis=2)
-        # colour_map = colour_map.transpose(2,0,1)
-        # colour_map = torch.tensor(colour_map)
-        # image = image.to("cpu").numpy().transpose(1, 2, 0)
-        return colour_map
-
-def alternative_decode_colormap(label, num_classes=2):
-    m = np.zeros_like(label)
-    for idx in range(0, num_classes):
-        m[label == idx] = colour_code[idx]
-    return m
-
-def load_image(path : str):
-    img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    return img
-
-def load_mask(path : str):
-    mask = cv2.imread(path, cv2.IMREAD_UNCHANGED)
-    mask = cv2.cvtColor(mask, cv2.COLOR_BGR2RGB)
-    mask = mask[...,0]
-    mask = mask[..., np.newaxis]
-    return mask
-
-def load_image_and_mask(img_dir : str, mask_dir : str, img_name : str) -> tuple:
-    img_fname = os.path.join(img_dir, img_name )
-    mask_fname = os.path.join(mask_dir, img_name)
-    
-    img = load_image(img_fname)
-    mask = load_mask(mask_fname)
-    return (img, mask)
-
-def run_deterministic_images(model : Model, transforms : A.Compose, img_list : list, img_dir : str, mask_dir : str, im_shape):
-    """
-        function to run deterministic dataloading and images
-        or use: next(iter(dl))
-        or use ds[10]
-    """
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    batch_shape = tuple([len(img_list), 3] + list(im_shape))
-    im_batch = torch.zeros(batch_shape)
-    mask_batch_shape = tuple([len(img_list), 1] + list(im_shape))
-    m_batch = torch.zeros(mask_batch_shape)
-    model.eval()
-    model.to(device)
-    for i, img in tqdm(enumerate(img_list)):
-        im, mask = load_image_and_mask(img_dir, mask_dir, img)
-        out = transforms(image = im, mask = mask)
-        im_batch[i, ...] = out['image']
-        m_batch[i, ...] = out['mask']
-
-    # pass all of them through at the same time
-    # x, y = transforms(image = im_batch, mask = m_batch)
-    x = im_batch.to(device)
+def visualize_results(model_trained, model_untrained, dl):
+    batch = next(iter(dl))
     with torch.no_grad():
-        y_hat = model(x)
-    y_hat = torch.argmax(y_hat, dim=1).detach().cpu().numpy()
-    return im_batch.detach().numpy(), y_hat, m_batch.detach().squeeze().numpy()
+        model_trained.eval()
+        logits_tr = model_trained(batch["image"])
+        logits_untr = model_untrained(batch["image"])
+    masks_trained = logits_tr.sigmoid()
+    masks_untrained = logits_untr.sigmoid()
 
-def plot3x3(input, mask, output, _, fnames, num_classes =2):
-    fig, axs = plt.subplots(3,3)
-    for i in range(3):
-        axs[i,0].imshow(input[i, ...])
-        axs[i,0].axis('off')
-        axs[i,0].set_title(f"Original: {fnames[i]}")
+    for image, gt_mask, mask_trained, mask_untrained in zip(batch["image"], batch["mask"], masks_trained, masks_untrained):
+        plt.figure(figsize=(10,5))
 
-        m = mask[i, ...]
-        m = decode_colormap(m, num_classes)
-        axs[i,1].imshow(m)
-        axs[i,1].axis('off')
-        axs[i,1].set_title('Mask')
+        plt.subplot(1,4,1)
+        plt.imshow(image.numpy().transpose(1,2,0))
+        plt.title("Image")
+        plt.axis("off")
 
-        out = output[i, ...]
-        out = decode_colormap(out, num_classes)
-        axs[i,2].imshow(out)
-        axs[i,2].axis('off')
-        axs[i,2].set_title('Output')
-    plt.show()
-    print("Test debug line")
+        plt.subplot(1,4,2)
+        plt.imshow(gt_mask.numpy().squeeze())
+        plt.title("Mask")
+        plt.axis("off")
 
+        plt.subplot(1,4,3)
+        plt.imshow(mask_trained.numpy().squeeze())
+        plt.title("Trained")
+        plt.axis("off")
 
-def plot3x4(input, mask, y_tr, y_untr, fnames, num_classes = 2):
-    fig, axs = plt.subplots(3,4)
-    for i in range(3):
-        axs[i,0].imshow(input[i, ...])
-        axs[i,0].axis('off')
-        axs[i,0].set_title(f"Original: {fnames[i]}")
+        plt.subplot(1,4,4)
+        plt.imshow(mask_untrained.numpy().squeeze())
+        plt.title("Untrained")
+        plt.axis("off")
 
-        m = mask[i, ...]
-        m = decode_colormap(m, num_classes)
-        axs[i,1].imshow(m)
-        axs[i,1].axis('off')
-        axs[i,1].set_title('Mask')
-
-        untr = y_untr[i, ...]
-        untr = decode_colormap(untr, num_classes)
-        axs[i,2].imshow(untr)
-        axs[i,2].axis('off')
-        axs[i,2].set_title('Untrained')
-
-        tr = y_tr[i, ...]
-        tr = decode_colormap(tr, num_classes)
-        axs[i,3].imshow(tr)
-        axs[i,3].axis('off')
-        axs[i,3].set_title('Trained')
-    plt.show()
-    print("Test Debug Line")
-
-
-def run_lightning_trainer_images(datadir, augmentations, model):
-
-    ds = BitouDataset(datadir, augmentations, img_folder="bitou_test", mask_folder="bitou_binary_masks")
-    # get a dataloader of the dataset
-    batch_size = 3
-    num_workers = batch_size if batch_size < 12 else 12
-    dl = DataLoader(ds, batch_size=batch_size, num_workers=num_workers, pin_memory=True)
-
-    # or use: next(iter(dl))
-    # or use ds[10]
-    trainer = pl.Trainer(
-                accelerator='gpu' if torch.cuda.is_available() else 'cpu',
-                devices=torch.cuda.device_count(),
-                fast_dev_run=8,         # run 8 batch
-                deterministic=True
-                )
-    predictions = trainer.predict(model,dl)
-    for pred in predictions:  
-        label_argm = torch.argmax(pred, dim=1).detach().cpu().numpy()
-        # for i in range(0,batch_size):
-        #     pred = predictions[i, ...]
-        #     label = torch.argmax(pred, dim=0).detach().cpu().numpy()
-        
-        # l = torch.argmax(predictions.squeeze(), dim=0).detach().cpu().numpy()
-        # label = (pred > 0.0).float()
-        # print(label_argm.shape)
-        fig, axs = plt.subplots(batch_size)
-        for i in range(batch_size):
-            lab = label_argm[i, ...]
-            dec = decode_colormap(lab)
-            axs[i].imshow(dec)
-            axs[i].axis('off')
-        # decoded = decode_colormap(label_argm, num_classes=2)
         plt.show()
-        print("Test Debug")
-
-def get_bitou_standard_case():
-    predict_files = [
-        "DJI_20220404135614_0001.JPG",
-        "DJI_20220404140510_0015.JPG",
-        "DJI_20220404140802_0022.JPG"
-    ]
-    model_f = "results/tmp/models/bitou/FPNresnet34-2022-10-27-16:20:25.pt"
-    model_f2 = None
-    datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data')
-    img_dir = os.path.join(datadir, 'bitou_test')
-    mask_dir = os.path.join(datadir, 'bitou_binary_masks')
-    num_classes = 2
-    plot_fn = plot3x3
-    return predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn
-
-
-def get_bitou_crop_case():
-    predict_files = [
-        "DJI_20220404135614_0001.JPG",
-        "DJI_20220404140510_0015.JPG",
-        "DJI_20220404140802_0022.JPG"
-    ]
-    model_f = "results/tmp/models/bitou/FPNresnet34_trained_crop-2022-11-01-11:12:2.pt"
-    model_f2 = "results/tmp/models/bitou/FPNresnet34_untrained_crop-2022-11-01-11:12:2.pt"
-    datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data', 'bitou_crop')
-    img_dir = os.path.join(datadir, 'orig')
-    mask_dir = os.path.join(datadir, 'mask')
-    num_classes = 2
-    plot_fn = plot3x4
-    return predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn
-
-def get_bitou_balance_case():
-    predict_files = [
-        "DJI_20220404135614_0001.JPG",
-        "DJI_20220404140510_0015.JPG",
-        "DJI_20220404140802_0022.JPG"
-    ]
-    # model_f = "results/tmp/models/bitou/FPNresnet34_trained_balance-2022-11-01-11:19:19.pt"
-    # model_f2 = "results/tmp/models/bitou/FPNresnet34_untrained_balance-2022-11-01-11:19:19.pt"
-    # model_f = "results/tmp/models/bitou/FPNresnet34_trained_balance-2022-11-02-9:40:55.pt"
-    # model_f2 = "results/tmp/models/bitou/FPNresnet34_untrained_balance-2022-11-02-9:40:55.pt"
-    model_f = "results/tmp/models/bitou/FPNresnet34_trained_balance-2022-11-02-10:17:13.pt"
-    model_f2 = "results/tmp/models/bitou/FPNresnet34_untrained_balance-2022-11-02-10:17:13.pt"
-    datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data', 'bitou_balance')
-    img_dir = os.path.join(datadir, 'orig')
-    mask_dir = os.path.join(datadir, 'mask')
-    num_classes = 2
-    plot_fn = plot3x4
-    return predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn
-
-def get_carla_case():
-    predict_files = [
-        "F61-14.png",
-        "F69-25.png",
-        "F65-32.png"
-    ]
-    model_f = "results/tmp/models/carla/FPNresnet34_trained-2022-10-31-15:19:17.pt"
-    model_f2 = "results/tmp/models/carla/FPNresnet34_untrained-2022-10-31-15:19:17.pt"
-    datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data')
-    img_dir = os.path.join(datadir, 'CameraRGB')
-    mask_dir = os.path.join(datadir, 'CameraSeg')
-    num_classes = 2
-    plot_fn = plot3x4
-    return predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn
-
-
 
 if __name__=="__main__":
-    # fixing the seed
-    pl.seed_everything(8)       # seed 8 shows one image
+    root = "data"
+    modeldir = "results/tmp/models/pets/"
+    modelf_trained = modeldir + "pets_trained.pt"
+    modelf_untrained = modeldir + "pets_untrained.pt"
 
-    predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn = get_bitou_balance_case()
+    test_dataset = SimpleOxfordPetDataset(root, "test")
+    batch_size = 4
+    num_workers = batch_size if batch_size < 12 else 12
+    test_dl = DataLoader(test_dataset, batch_size=batch_size, num_workers=num_workers)
 
-    model = Model.load_from_checkpoint(
-        model_f, 
-        # map_location=map_location
-        )
+    model_tr = PetModel.load_from_checkpoint(modelf_trained)
+    model_untr = PetModel.load_from_checkpoint(modelf_untrained)
 
-    # get the basic transform - normalization
-    preprocess_params = model.get_preprocessing_parameters()
-    mean = tuple(preprocess_params['mean'])
-    std = tuple(preprocess_params['std'])
+    visualize_results(model_tr, model_untr, test_dl) 
 
-    height = 512
-    width = 512
-    augmentations = A.Compose([
-        A.Resize(height, width, p=1),
-        A.Normalize(mean=mean, std=std),
-        ToTensorV2(transpose_mask=True)
-    ])
-    
-    # EITHER
-    im_batch, y_tr, y = run_deterministic_images(model, augmentations, predict_files, img_dir, mask_dir, im_shape=(height, width))
-    if model_f2 is not None:
-        model = Model.load_from_checkpoint(model_f2)
-        _, y_untr, _ = run_deterministic_images(model, augmentations, predict_files, img_dir, mask_dir, (height, width))
-    else:
-        y_untr = None
-    # # invert axes
-    im_batch = np.moveaxis(im_batch, 1, -1)
-    # y_hat = np.moveaxis(y_hat, 1, -1)
-    # y = np.moveaxis(y, 1, -1)
-    plot_fn(im_batch, y, y_tr, y_untr, predict_files, num_classes)     
 
-    print("Test Debug Line")
