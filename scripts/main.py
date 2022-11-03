@@ -8,6 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 from segmentation_models_pytorch.datasets import SimpleOxfordPetDataset
 from csupl.model import PetModel
+from csupl.dataloader import SimpleBitouPetDataset
 
 # lightning
 import pytorch_lightning as pl
@@ -56,27 +57,30 @@ def visualize_results(model, dl):
 
 if __name__=="__main__":
     save_model = True
-    export_dir = "results/tmp/models/pets"
-    root = "data"
+    export_dir = "results/tmp/models/bitou"
+    root = "data/bitou_crop"
     # SimpleOxfordPetDataset.download(root)
-    train_dataset = SimpleOxfordPetDataset(root, "train")
-    val_dataset = SimpleOxfordPetDataset(root, "valid")
-    test_dataset = SimpleOxfordPetDataset(root, "test")
+    pet_train_ds = SimpleOxfordPetDataset(root="data")
+    train_dataset = SimpleBitouPetDataset(root, "train")
+    val_dataset = SimpleBitouPetDataset(root, "valid")
+    # test_dataset = SimpleOxfordPetDataset(root, "test")
+    assert set(train_dataset.filenames).isdisjoint(set(val_dataset.filenames))
 
-    print("Train size {}\t Val Size {}\t Test Size {}".format(len(train_dataset), len(val_dataset), len(test_dataset)))
+    print("Train size {}\t Val Size {}\t Test Size {}".format(len(train_dataset), len(val_dataset), 0))
 
     batch_size = 24
     num_workers = batch_size if batch_size < 16 else 16
     train_dl = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers,  shuffle=True)
     val_dl = DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-    test_dl = DataLoader(test_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-    
+    # test_dl = DataLoader(test_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+    pet_train_dl = DataLoader(pet_train_ds, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+
+    # pet_sample = pet_train_ds[0]
     # looking at a few samples
-    # TODO: take the dataloading structure out from here
-    #! preprocessing in the super @staticmethod for the mask
     sample_train = train_dataset[0]
-    sample_test = test_dataset[0]
+    # sample_test = test_dataset[0]
     sample_val = val_dataset[0]
+
 
     plot_sample(sample_train)
 
@@ -88,14 +92,14 @@ if __name__=="__main__":
     trainer = pl.Trainer(
         accelerator= "gpu" if torch.cuda.is_available() else None,
         devices=torch.cuda.device_count(),
-        max_epochs=5,
+        max_epochs=10,
         limit_predict_batches=1,
     )
 
     if save_model:
         model.eval()
         trainer.predict(model, train_dl)
-        modelpath = export_dir + "/pets_untrained.pt"
+        modelpath = export_dir + "/binary_untrained.pt"
         trainer.save_checkpoint(modelpath)
         print(f"model saved to {modelpath}")
         model.unfreeze()
@@ -111,14 +115,14 @@ if __name__=="__main__":
     val_metrics = trainer.validate(model, dataloaders=val_dl, verbose=False)
 
     # Testing
-    test_metrics = trainer.test(model, dataloaders=test_dl, verbose=False)
+    # test_metrics = trainer.test(model, dataloaders=test_dl, verbose=False)
 
-    visualize_results(model, test_dl)
+    # visualize_results(model, val_dl)
     
     # Saving the model
     if save_model:
         model.eval()
-        modelpath = export_dir + "/pets_trained.pt"
+        modelpath = export_dir + "/binary_trained.pt"
         trainer.save_checkpoint(modelpath)
         print(f"model saved to {modelpath}")
     print("Test Debug line")

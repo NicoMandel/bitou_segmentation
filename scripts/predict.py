@@ -1,7 +1,8 @@
 import torch
 
 from csupl.model import PetModel
-from segmentation_models_pytorch.datasets import SimpleOxfordPetDataset
+# from segmentation_models_pytorch.datasets import SimpleOxfordPetDataset
+from csupl.dataloader import SimpleBitouPetDataset
 
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
@@ -41,12 +42,13 @@ def visualize_results(model_trained, model_untrained, dl):
         plt.show()
 
 if __name__=="__main__":
-    root = "data"
-    modeldir = "results/tmp/models/pets/"
-    modelf_trained = modeldir + "pets_trained.pt"
-    modelf_untrained = modeldir + "pets_untrained.pt"
+    root = "data/bitou_crop"
+    modeldir = "results/tmp/models/bitou/"
+    modelf_trained = modeldir + "binary_trained.pt"
+    modelf_untrained = modeldir + "binary_untrained.pt"
 
-    test_dataset = SimpleOxfordPetDataset(root, "test")
+    test_dataset = SimpleBitouPetDataset(root, "valid")
+    # test_dataset = SimpleOxfordPetDataset(root, "test")
     batch_size = 4
     num_workers = batch_size if batch_size < 12 else 12
     test_dl = DataLoader(test_dataset, batch_size=batch_size, num_workers=num_workers)
