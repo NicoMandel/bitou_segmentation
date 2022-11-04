@@ -124,7 +124,8 @@ def run_deterministic_images(model : Model, transforms : A.Compose, img_list : l
     x = im_batch.to(device)
     with torch.no_grad():
         y_hat = model(x)
-    y_hat = torch.argmax(y_hat, dim=1).detach().cpu().numpy()
+    # y_hat = torch.argmax(y_hat, dim=1).detach().cpu().numpy()
+    y_hat = y_hat.sigmoid()
     return im_batch.detach().numpy(), y_hat, m_batch.detach().squeeze().numpy()
 
 def plot3x3(input, mask, output, _, fnames, num_classes =2):
@@ -163,13 +164,15 @@ def plot3x4(input, mask, y_tr, y_untr, fnames, num_classes = 2):
         axs[i,1].set_title('Mask')
 
         untr = y_untr[i, ...]
-        untr = decode_colormap(untr, num_classes)
+        # untr = decode_colormap(untr, num_classes)
+        untr = untr.squeeze().cpu().numpy()
         axs[i,2].imshow(untr)
         axs[i,2].axis('off')
         axs[i,2].set_title('Untrained')
 
         tr = y_tr[i, ...]
-        tr = decode_colormap(tr, num_classes)
+        # tr = decode_colormap(tr, num_classes)
+        tr = tr.squeeze().cpu().numpy()
         axs[i,3].imshow(tr)
         axs[i,3].axis('off')
         axs[i,3].set_title('Trained')
