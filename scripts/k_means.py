@@ -147,7 +147,7 @@ def run_single(img_list : str, img_dir : Path, scale : int, K : int, iterations 
 
         # Plot the images
         plot_images(img, mask, img_name, K)
-        print("Test line for debugging")
+        # print("Test line for debugging")
     
     
     else:

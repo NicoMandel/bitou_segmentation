@@ -8,10 +8,15 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 # plt.rcParams['figure.dpi'] = 300
+from sklearn.cluster import KMeans
 
 
-colour_code = np.array([(220, 220, 220), (128, 0, 0), (0, 128, 0),  # class
-                        (192, 0, 0), (64, 128, 0), (192, 128, 0),   # background
+colour_code = np.array([(220, 220, 220),
+                    (128, 0, 0),
+                    (0, 128, 0),  # class
+                    (0, 0, 128),
+                    (64, 128, 0),
+                    (192, 128, 0),   # background
         (70, 70, 70),      # Buildings
         (190, 153, 153),   # Fences
         (72, 0, 90),       # Other
@@ -79,9 +84,14 @@ def cluster_img(img : np.array, K : int = 4, attempts : int = 10, iterations : i
     vectorized = img.reshape((-1,3))
     vect = np.float32(vectorized)
     # Setting criteria
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, iterations, epsilon)    # Alternative: criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
-    _, label, center = cv2.kmeans(vect, K, None, criteria, attempts, cv2.KMEANS_PP_CENTERS)       # alternative: cv2.KMEANS_RANDOM_CENTERS - random initialized centers
+    # criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, iterations, epsilon)    # Alternative: criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
+    # _, label, center = cv2.kmeans(vect, K, None, criteria, attempts, cv2.KMEANS_PP_CENTERS)       # alternative: cv2.KMEANS_RANDOM_CENTERS - random initialized centers
     
+    # using the random state so that we can see if we get the same clusters
+    km = KMeans(K, max_iter=iterations,tol=epsilon, random_state=42).fit(vect)
+    label = km.labels_
+    center = km.cluster_centers_
+
     # converting the image back
     label = label.flatten()
     center = np.uint8(center)
@@ -109,6 +119,7 @@ def plot_images(img : np.ndarray, mask : np.ndarray, img_name : str, K : int) ->
     axs[1].set_title('Clusters')
     fig.suptitle(f"Image: {img_name}, Clusters: {K}")
     plt.show()
+    print("Test line for debugging")
 
 def save_image(outfig : str, mask : np.ndarray) -> None:
     cv2.imwrite(outfig, cv2.cvtColor(mask, cv2.COLOR_BGR2RGB))
