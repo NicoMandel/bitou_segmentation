@@ -37,13 +37,16 @@ def parse_args():
     parser.add_argument("--file-extension", help="Image file extension, with dot. Defaults to JPG", default=".JPG")
     parser.add_argument("-p", "--plot", help="Index to plot. If given, will not write directory out. 1-indexed!", default=0, type=int)
     parser.add_argument("--full", help="Taking the entire directory as a single data entry. Long Run duration with high K. \
-                        Even longer with no Scale factor. Recommended: Scale 30, K 5. Default is False" , default=False, action="store_true") 
+                        Even longer with no Scale factor. Recommended: Scale 30, K 5. Default is False" , default=False, action="store_true")
+    parser.add_argument("--hsv", default=False, action="store_true", help="If set, will convert to hsv colorspace before performing clustering")
     args = vars(parser.parse_args())
     return args
 
-def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : int, epsilon : float, plot_idx : int, overlay : bool, output_dir : str) -> None:
+def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : int, epsilon : float, plot_idx : int, overlay : bool, output_dir : str,
+            f_ext : str, hsv : bool) -> None:
     """
         Function that will run the full directory
+        ! add f_ext to the list of arguments
     """
     # get the image shape of the first image to create a big numpy array
     img_name = img_list[0]
@@ -60,6 +63,8 @@ def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : 
         img = read_image(str(fname))
         if scale:
             img = resize_img(img, scale_perc=scale)
+        if hsv:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         
         # insert into big array
         batch_arr[i,...] = img
@@ -80,6 +85,9 @@ def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : 
         label = labels[idx, ...]
         label = label.flatten()
         if overlay:
+            if hsv: 
+                img = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
+                mask = cv2.cvtColor(mask, cv2.COLOR_HSV2BGR)
             m = decode_colormap(m, label, K)
         plot_images(img, m, img_name, K)
         print("Test line for debugging")
@@ -100,6 +108,9 @@ def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : 
                 label = labels[i,...]
                 label = label.flatten()
                 if overlay:
+                    if hsv: 
+                        img = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
+                        m = cv2.cvtColor(m, cv2.COLOR_HSV2BGR)
                     m = decode_colormap(m, label, K)
                 
                 outfig = os.path.join(outdir, img_name + ".jpg")
@@ -108,7 +119,8 @@ def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : 
                 
         except OSError: raise # FileExistsErros is subclass of OSError
 
-def run_single(img_list : str, img_dir : Path, scale : int, K : int, iterations : int, epsilon : float, plot_idx : int, overlay : bool, output_dir : str):
+def run_single(img_list : str, img_dir : Path, scale : int, K : int, iterations : int, epsilon : float, plot_idx : int, overlay : bool, output_dir : str,
+                f_ext : str, hsv : bool):
     """
         Function that will run a single file from the directory
     """
@@ -118,6 +130,9 @@ def run_single(img_list : str, img_dir : Path, scale : int, K : int, iterations 
         img = read_image(str(fname))
         if scale:
             img = resize_img(img, scale)
+        
+        if hsv:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
         # doing the clustering
         mask, labels = cluster_img(img, K=K, iterations=iterations, epsilon=epsilon)
@@ -125,6 +140,9 @@ def run_single(img_list : str, img_dir : Path, scale : int, K : int, iterations 
         # whiteout the xths cluster
         if overlay:
             # mask = disable_cluster(mask, overlay, labels)
+            if hsv:
+                img = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
+                mask = cv2.cvtColor(mask, cv2.COLOR_HSV2BGR)
             mask = decode_colormap(mask, labels, K)
 
         # Plot the images
@@ -135,7 +153,7 @@ def run_single(img_list : str, img_dir : Path, scale : int, K : int, iterations 
     else:
         print("Reading entire directory {}, {} images".format(img_dir, len(img_list)))
         outdir_name = "K-{}_scale-{}_Overlay-{}".format(K, scale, overlay)
-        output_parentdir = args["output"]
+        output_parentdir = output_dir
         outdir = os.path.join(output_parentdir, outdir_name)
         print("Running Test case K: {}\tScale: {}\nSettings: Iterations {}\tEpsilon: {}\tOverlay Class: {}".format(
         K, scale, iterations, epsilon, overlay
@@ -147,15 +165,21 @@ def run_single(img_list : str, img_dir : Path, scale : int, K : int, iterations 
             for img_name in tqdm(img_list):
                 fname = img_dir / (img_name+f_ext)
                 img = read_image(str(fname))
+
                 if scale:
                     img = resize_img(img, scale)
 
+                if hsv:
+                    img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
                 # doing the clustering
                 mask, labels = cluster_img(img, K=K, iterations=iterations, epsilon=epsilon)
 
                 # whiteout the xths cluster
                 if overlay:
                     # mask = disable_cluster(mask, overlay, labels)
+                    if hsv: 
+                        img = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
+                        mask = cv2.cvtColor(mask, cv2.COLOR_HSV2BGR)
                     mask = decode_colormap(mask, labels, K)
 
                 # Save the image
@@ -188,8 +212,11 @@ if __name__=="__main__":
     # Whether to run full folder:
     full = args["full"]
 
+    # Whether to convert into hsv colorspace before clustering
+    hsv = args["hsv"]
+
     if full:
-        run_full(img_list, img_dir, scale, K, iterations, epsilon, plot_idx, overlay, outdir)
+        run_full(img_list, img_dir, scale, K, iterations, epsilon, plot_idx, overlay, outdir, f_ext, hsv)
     else:
-        run_single(img_list, img_dir, scale, K, iterations, epsilon, plot_idx, overlay, outdir)
+        run_single(img_list, img_dir, scale, K, iterations, epsilon, plot_idx, overlay, outdir, f_ext, hsv)
 
