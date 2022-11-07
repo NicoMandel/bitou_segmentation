@@ -4,6 +4,7 @@
     and [here](https://www.thepythoncode.com/article/kmeans-for-image-segmentation-opencv-python)
 """
 
+from typing import Any
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
@@ -92,8 +93,13 @@ def cluster_img(img : np.array, K : int = 4, attempts : int = 10, iterations : i
     label = km.labels_
     center = km.cluster_centers_
 
+    # using a lookup table to convert clusters
+    idx = np.argsort(center.sum(axis=1))
+    lut = np.zeros_like(idx)
+    lut[idx] = np.arange(K)
+
     # converting the image back
-    label = label.flatten()
+    label = lut[label.flatten()]
     center = np.uint8(center)
     res = center[label]
     res = res.reshape((img.shape))
@@ -124,3 +130,53 @@ def plot_images(img : np.ndarray, mask : np.ndarray, img_name : str, K : int) ->
 def save_image(outfig : str, mask : np.ndarray) -> None:
     cv2.imwrite(outfig, cv2.cvtColor(mask, cv2.COLOR_BGR2RGB))
 
+class km_algo:
+
+    def __init__(self, K : int = 4, attempts : int = 10, iterations : int =100, epsilon : float = 0.2) -> None:
+        self.km = KMeans(K, max_iter=iterations, tol=epsilon, random_state=42)
+        # self.labels = None
+        self.centers = None
+        self.K = K
+
+    def fit(self, img : np.ndarray):
+        """
+            Fitting on a single image
+        """
+        vect = self._preprocess(img)
+        self.km.fit(vect)
+        # self.labels = self.km.labels_
+        self.centers = np.uint8(self.km.cluster_centers_)
+
+    def predict(self, img : np.ndarray):
+        """
+            predicting on a single image
+        """
+        vect = self._preprocess(img)
+        label = self.km.predict(vect)
+        label = label.flatten()
+        res = self.center[label]
+        res = res.reshape((img.shape))
+        return res, label
+
+
+    def __call__(self, inp : np.ndarray) -> Any:
+        return self.predict(inp)
+    
+    def _lookup(self, idx : np.ndarray):
+        raise NotImplementedError
+
+    def _preprocess(self, img : np.ndarray) -> np.ndarray:
+        vect = img.reshape((-1,3))
+        return np.float32(vect)
+    
+    def calculate_distance(self, inp : np.ndarray, tol : float = None):
+        """
+            Function to calculate the distance to the centers with a tolerance
+        """
+        if tol is None:
+            tol = 255. / (self.K * 2)       # roughly half the distance
+        
+        # use norm function
+        dist = np.linalg.norm(inp, self.centers)
+
+        

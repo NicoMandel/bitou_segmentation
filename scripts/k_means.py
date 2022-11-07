@@ -46,7 +46,6 @@ def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : 
             f_ext : str, hsv : bool) -> None:
     """
         Function that will run the full directory
-        ! add f_ext to the list of arguments
     """
     # get the image shape of the first image to create a big numpy array
     img_name = img_list[0]
@@ -86,8 +85,8 @@ def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : 
         label = label.flatten()
         if overlay:
             if hsv: 
-                img = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
-                mask = cv2.cvtColor(mask, cv2.COLOR_HSV2BGR)
+                img = cv2.cvtColor(img.astype('uint8'), cv2.COLOR_HSV2BGR)
+                m = cv2.cvtColor(m, cv2.COLOR_HSV2BGR)
             m = decode_colormap(m, label, K)
         plot_images(img, m, img_name, K)
         print("Test line for debugging")
@@ -109,7 +108,7 @@ def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : 
                 label = label.flatten()
                 if overlay:
                     if hsv: 
-                        img = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
+                        img = cv2.cvtColor(img.astype('uint8'), cv2.COLOR_HSV2BGR)
                         m = cv2.cvtColor(m, cv2.COLOR_HSV2BGR)
                     m = decode_colormap(m, label, K)
                 
