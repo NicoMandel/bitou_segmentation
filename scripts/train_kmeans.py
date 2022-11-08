@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument("--iterations", type=int, help="Iterations to run the algorithm. Defaults to 100", default=100)
     parser.add_argument("--file-extension", help="Image file extension, with dot. Defaults to JPG", default=".JPG")
     parser.add_argument("-p", "--plot", help="Index to use for prediction. If given, will use only 1 image. If not given or 0 will \
-                        read entire directory of input 1-indexed!", default=0, type=int)
+                        read entire directory of input. 1-indexed!", default=0, type=int)
     parser.add_argument("--hsv", default=False, action="store_true", help="If set, will convert to hsv colorspace before performing clustering")
     args = vars(parser.parse_args())
     return args
@@ -115,80 +115,13 @@ def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : 
                 
         except OSError: raise # FileExistsErros is subclass of OSError
 
-def run_single(img_list : str, img_dir : Path, scale : int, K : int, iterations : int, epsilon : float, plot_idx : int, overlay : bool, output_dir : str,
-                f_ext : str, hsv : bool):
-    """
-        Function that will run a single file from the directory
-    """
-    if plot_idx:
-        img_name = img_list[plot_idx-1]
-        fname = img_dir / (img_name+f_ext)
-        img = read_image(str(fname))
-        if scale:
-            img = resize_img(img, scale)
-        
-        if hsv:
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-        # doing the clustering
-        mask, labels = cluster_img(img, K=K, iterations=iterations, epsilon=epsilon)
-
-        # whiteout the xths cluster
-        if overlay:
-            # mask = disable_cluster(mask, overlay, labels)
-            if hsv:
-                img = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
-                mask = cv2.cvtColor(mask, cv2.COLOR_HSV2BGR)
-            mask = decode_colormap(mask, labels, K)
-
-        # Plot the images
-        plot_images(img, mask, img_name, K)
-        # print("Test line for debugging")
-    
-    
-    else:
-        print("Reading entire directory {}, {} images".format(img_dir, len(img_list)))
-        outdir_name = "K-{}_scale-{}_Overlay-{}".format(K, scale, overlay)
-        output_parentdir = output_dir
-        outdir = os.path.join(output_parentdir, outdir_name)
-        print("Running Test case K: {}\tScale: {}\nSettings: Iterations {}\tEpsilon: {}\tOverlay Class: {}".format(
-        K, scale, iterations, epsilon, overlay
-            ))
-
-        try:
-            mkdir(outdir)
-            # Section to read the entire directory
-            for img_name in tqdm(img_list):
-                fname = img_dir / (img_name+f_ext)
-                img = read_image(str(fname))
-
-                if scale:
-                    img = resize_img(img, scale)
-
-                if hsv:
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-                # doing the clustering
-                mask, labels = cluster_img(img, K=K, iterations=iterations, epsilon=epsilon)
-
-                # whiteout the xths cluster
-                if overlay:
-                    # mask = disable_cluster(mask, overlay, labels)
-                    if hsv: 
-                        img = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
-                        mask = cv2.cvtColor(mask, cv2.COLOR_HSV2BGR)
-                    mask = decode_colormap(mask, labels, K)
-
-                # Save the image
-                outfig = os.path.join(outdir, img_name + ".jpg")
-                tqdm.write("Saving to: {}".format(outfig))
-                save_image(outfig, mask)
-                
-        except OSError: raise # FileExistsErros is subclass of OSError
 
 def create_classifier(img_list : str, img_dir : Path, scale : int, K : int, iterations : int, epsilon : float, plot_idx : int, f_ext : str, hsv : bool, output_dir : str):
     """
         function to create a classifier and store it
     """
+    classif = km_algo(K=K, hsv=hsv, scale=scale,
+            iterations=iterations, epsilon=epsilon)
     if plot_idx:
 
         img_name = img_list[plot_idx-1]
@@ -201,18 +134,45 @@ def create_classifier(img_list : str, img_dir : Path, scale : int, K : int, iter
         ))
 
         img = read_image(str(fname))
-        classif = km_algo(K=K, hsv=hsv, scale=scale,
-            iterations=iterations, epsilon=epsilon)
+        
+        # actual fitting line
+        img = classif.preprocess_img(img)
         classif.fit(img)
-
+        ######
         classif_name = "kmeans_K-{}_scale-{}_{}_img-{}".format(
             K, scale, "hsv" if hsv else "rgb", img_name
         )
         outpath = os.path.join(output_dir, classif_name)
         classif.save_classifier(outpath)
+    
+    # Running on an entire directory
     else:
-        raise NotImplementedError
-        # TODO: continue here - doing this for a full classifier
+        img_name = img_list[0]
+        fname = img_dir / (img_name + f_ext)
+        img = read_image(str(fname))
+        if scale:
+            img = resize_img(img, scale_perc=scale)       # resizes to 50% by default
+        img_shape = img.shape
+        img_shape = tuple([len(img_list)]) + img_shape
+        batch_arr = np.zeros(img_shape)
+
+        for i, img_name in tqdm(enumerate(img_list)):
+            fname = img_dir / (img_name+f_ext)
+            img = read_image(str(fname))
+            img = classif.preprocess_img(img, mode="fit")
+                        
+        # insert into big array
+        batch_arr[i,...] = img
+
+        # perform clustering
+        classif.fit(batch_arr)
+
+        # Saving the classifier:
+        classif_name = "kmeans_K-{}_scale-{}_{}_{}".format(
+            K, scale, "hsv" if hsv else "rgb", "full"
+        )
+        outpath = os.path.join(output_dir, classif_name)
+        classif.save_classifier(outpath)
         
 
 

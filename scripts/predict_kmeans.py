@@ -56,12 +56,11 @@ def predict_files(img_list : str, img_dir : Path, plot_idx : int, overlay : bool
         print("Predicting on entire directory: {}\t{} files\nUsing classifier: {}".format(
             img_dir, len(img_list), classif_path
         ))
-        print("Classifier settings: {} classes\t{}%% scale,{}\tColorspace: {}\tOverlay: {}".format(
+        print("Classifier settings: {} classes\t{}%% scale,\tColorspace: {}\tOverlay: {}".format(
             classif.K, classif.scale, "hsv" if classif.hsv else "rgb", overlay
         ))
 
-        # TODO: find a way here to put in the name if it's a single image classifier or full images classifier 
-        outdir_name = "K-{}_scale-{}_{}_{}".format(classif.K, classif.scale, "hsv" if classif.hsv else "rgb", "overlay" if overlay else "colors")
+        outdir_name = os.path.basename(classif_path).split(".")[0]
         outdir = os.path.join(output_dir, outdir_name)
         print("Writing out to directory: {}".format(outdir))
         try:

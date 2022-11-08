@@ -153,7 +153,7 @@ class km_algo:
         """
             Fitting on a single image
         """
-        img = self._preprocess_img(img, "fit")
+        # img = self.preprocess_img(img, "fit")
         vect = self._preprocess(img)
         self.km.fit(vect)
         # self.labels = self.km.labels_
@@ -172,7 +172,7 @@ class km_algo:
 
 
     def __call__(self, inp : np.ndarray, overlay : bool) -> np.ndarray:
-        inp = self._preprocess_img(inp, "predict")
+        inp = self.preprocess_img(inp, "predict")
         m, l = self.predict(inp)
         m = self._postprocess_mask(m, l, overlay)
         return m
@@ -184,7 +184,7 @@ class km_algo:
         vect = img.reshape((-1,3))
         return np.float32(vect)
     
-    def _preprocess_img(self, img: np.ndarray, mode : str = "predict") -> np.ndarray:
+    def preprocess_img(self, img: np.ndarray, mode : str = "predict") -> np.ndarray:
         """
             Function to preprocess a single image
         """
@@ -193,12 +193,6 @@ class km_algo:
         if self.hsv:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         return img
-
-    def _preprocess_batch(self, img_batch : np.ndarray) -> np.ndarray:
-        """
-            Function to preprocess batch of images
-        """
-        raise NotImplementedError
 
     def _postprocess_img(self, img: np.ndarray) -> np.ndarray:
         """
@@ -217,13 +211,6 @@ class km_algo:
             mask = decode_colormap(mask, labels, self.K)
         return mask
 
-
-    def _postprocess_batch(self, img_batch: np.ndarray, hsv : bool) -> np.ndarray:
-        """
-            Function to postprocess a batch of images
-        """
-        raise NotImplementedError
-    
     def calculate_distance(self, inp : np.ndarray, tol : list = None):
         """
             Function to calculate the distance to the centers with a tolerance
@@ -245,10 +232,9 @@ class km_algo:
         print("Saved to: {}".format(fn))
 
     @classmethod
-    def load_classifier(cls, fname : str, f_ext : str = ".pkl"):
-        fn = fname + f_ext
-        print("Loading from: {}".format(fn))
-        with open(fn, 'rb') as f:
+    def load_classifier(cls, fname : str):
+        print("Loading from: {}".format(fname))
+        with open(fname, 'rb') as f:
             classif = pickle.load(f)
         return classif
         
