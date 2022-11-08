@@ -173,7 +173,6 @@ class km_algo:
 
     def __call__(self, inp : np.ndarray, overlay : bool) -> np.ndarray:
         inp = self._preprocess_img(inp, "predict")
-        inp = self._preprocess(inp)
         m, l = self.predict(inp)
         m = self._postprocess_mask(m, l, overlay)
         return m

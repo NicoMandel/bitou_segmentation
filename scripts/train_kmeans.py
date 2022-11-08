@@ -26,22 +26,16 @@ def parse_args():
     # Arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", help="Directory to generate masks from", type=str, default=def_input)
-    parser.add_argument("-o", "--output", help="Directory where masks should be output to.\
-                        will create a subfolder with a string concatenated by the K-means settings.\
-                        if argument plot is given, will not create output folder", type=str, default=data_dir)
+    parser.add_argument("-o", "--output", help="Directory where classifier should be output to.\
+                        will create a file with a string concatenated by the K-means settings.", type=str, default=data_dir)
     parser.add_argument("-K", help="Number of clusters K to use. Default is 4",type=int, default=4)
     parser.add_argument("-s", "--scale", help="scale for resizing the images in percentage. If None is given, will not resize", type=int, default=30)
     parser.add_argument("-e", "--epsilon", help="epsilon stopping criteria for the KMeans clustering algorithm. Defaults to 0.2", type=float, default=0.2)
     parser.add_argument("--iterations", type=int, help="Iterations to run the algorithm. Defaults to 100", default=100)
-    parser.add_argument("--overlay", help="Whether to decode colours. Defaults to false", default=False, action="store_true")
     parser.add_argument("--file-extension", help="Image file extension, with dot. Defaults to JPG", default=".JPG")
-    parser.add_argument("-p", "--plot", help="Index to plot. If given, will not write directory out. 1-indexed!", default=0, type=int)
-    parser.add_argument("--full", help="Taking the entire directory as a single data entry. Long Run duration with high K. \
-                        Even longer with no Scale factor. Recommended: Scale 30, K 5. Default is False" , default=False, action="store_true")
+    parser.add_argument("-p", "--plot", help="Index to use for prediction. If given, will use only 1 image. If not given or 0 will \
+                        read entire directory of input 1-indexed!", default=0, type=int)
     parser.add_argument("--hsv", default=False, action="store_true", help="If set, will convert to hsv colorspace before performing clustering")
-    parser.add_argument("-l", "--load", help="If given, the classifier will be loaded from the file and predictions will be performed. \
-                        If none is given, will train a classifier and store it.",
-                        default=None, type=str)
     args = vars(parser.parse_args())
     return args
 
@@ -191,52 +185,7 @@ def run_single(img_list : str, img_dir : Path, scale : int, K : int, iterations 
                 
         except OSError: raise # FileExistsErros is subclass of OSError
 
-def predict_files(img_list : str, img_dir : Path, plot_idx : int, overlay : bool, output_dir : str, 
-                f_ext : str, classif_path : str):
-    """
-        function to load a classifier and predict 
-    """
-    classif = km_algo.load_classifier(classif_path)
-
-    if plot_idx:
-        img_name = img_list[plot_idx-1]
-        fname = img_dir / (img_name+f_ext)
-        img = read_image(str(fname))
-        mask = classif(img, overlay)
-        plot_images(img, mask, img_name, classif.K)
-    else:
-        print("Predicting on entire directory: {}\t{} files\nUsing classifier: {}".format(
-            img_dir, len(img_list), classif_path
-        ))
-        print("Classifier settings: {} classes\t{}%% scale,{}\thsv: {}\tOverlay: {}".format(
-            classif.K, classif.scale, classif.hsv, overlay
-        ))
-
-        # TODO: find a way here to put in the name if it's a single image classifier or full images classifier 
-        outdir_name = "K-{}_scale-{}_hsv-{}_Overlay-{}".format(classif.K, classif.scale, classif.hsv, overlay)
-        outdir = os.path.join(output_dir, outdir_name)
-        print("Writing out to directory: {}".format(outdir))
-        try:
-            mkdir(outdir)
-            # Section to read the entire directory
-            for img_name in tqdm(img_list):
-                # input processing
-                fname = img_dir / (img_name+f_ext)
-                img = read_image(str(fname))
-
-                # prediction
-                mask = classif(img, overlay)
-
-                # Save the image
-                outfig = os.path.join(outdir, img_name + ".jpg")
-                tqdm.write("Saving to: {}".format(outfig))
-                save_image(outfig, mask)
-                
-        except OSError: raise # FileExistsErros is subclass of OSError
-
-
-
-def create_classifier(img_list : str, img_dir : Path, scale : int, K : int, iterations : int, epsilon : float, f_ext : str, hsv : bool, output_dir : str):
+def create_classifier(img_list : str, img_dir : Path, scale : int, K : int, iterations : int, epsilon : float, plot_idx : int, f_ext : str, hsv : bool, output_dir : str):
     """
         function to create a classifier and store it
     """
@@ -244,11 +193,11 @@ def create_classifier(img_list : str, img_dir : Path, scale : int, K : int, iter
 
         img_name = img_list[plot_idx-1]
         fname = img_dir / (img_name+f_ext)
-        print("Creating classifier with image:{}".format(
+        print("Creating classifier with image: {}".format(
             fname
         ))
-        print("Classifier settings: Clusters: {}, scale: {}, hsv: {}".format(
-            K, scale, hsv
+        print("Classifier settings: Clusters: {}, scale: {}, colorspace: {}".format(
+            K, scale, "hsv" if hsv else "rgb"
         ))
 
         img = read_image(str(fname))
@@ -256,8 +205,8 @@ def create_classifier(img_list : str, img_dir : Path, scale : int, K : int, iter
             iterations=iterations, epsilon=epsilon)
         classif.fit(img)
 
-        classif_name = "kmeans_K-{}_scale-{}_hsv-{}_img-{}".format(
-            K, scale, hsv, img_name
+        classif_name = "kmeans_K-{}_scale-{}_{}_img-{}".format(
+            K, scale, "hsv" if hsv else "rgb", img_name
         )
         outpath = os.path.join(output_dir, classif_name)
         classif.save_classifier(outpath)
@@ -280,39 +229,23 @@ if __name__=="__main__":
     K = args["K"]
     epsilon = args["epsilon"]
     iterations = args["iterations"]
-    overlay = args["overlay"]
     scale = args["scale"]
     
     # Reading image
     plot_idx = args["plot"]
-    
-    # Whether to run full folder:
-    full = args["full"]
 
     # Whether to convert into hsv colorspace before clustering
     hsv = args["hsv"]
 
-    # TODO: turn into Training and prediction part
-    loading = args["load"]
-    if loading:
-        predict_files(
-            img_list=img_list,
-            img_dir=img_dir,
-            plot_idx=plot_idx,
-            output_dir=outdir,
-            f_ext=f_ext,
-            overlay=overlay,
-            classif_path=loading
-            )
-    else:
-        create_classifier(
-            img_list = img_list,
-            img_dir = img_dir,
-            scale=scale,
-            K=K,
-            iterations=iterations,
-            epsilon=epsilon,
-            f_ext=f_ext,
-            hsv=hsv,
-            output_dir=outdir
-        )
+    create_classifier(
+        img_list = img_list,
+        img_dir = img_dir,
+        scale=scale,
+        K=K,
+        iterations=iterations,
+        epsilon=epsilon,
+        plot_idx=plot_idx,
+        f_ext=f_ext,
+        hsv=hsv,
+        output_dir=outdir
+    )
