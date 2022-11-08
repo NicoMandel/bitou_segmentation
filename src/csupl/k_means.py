@@ -137,7 +137,9 @@ def save_image(outfig : str, mask : np.ndarray) -> None:
 class km_algo:
 
     def __init__(self, K : int = 4, attempts : int = 10, iterations : int =100, epsilon : float = 0.2,
-                scale : int = None, hsv : bool = False, overlay : bool = False) -> None:
+                scale : int = None, hsv : bool = False, 
+                # overlay : bool = False
+                ) -> None:
         self.km = KMeans(K, max_iter=iterations, tol=epsilon, random_state=42)
         # self.labels = None
         self.centers = None

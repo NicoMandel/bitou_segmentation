@@ -252,7 +252,8 @@ def create_classifier(img_list : str, img_dir : Path, scale : int, K : int, iter
         ))
 
         img = read_image(str(fname))
-        classif = km_algo(K=K, hsv=hsv, scale=scale)
+        classif = km_algo(K=K, hsv=hsv, scale=scale,
+            iterations=iterations, epsilon=epsilon)
         classif.fit(img)
 
         classif_name = "kmeans_K-{}_scale-{}_hsv-{}_img-{}".format(
@@ -291,11 +292,27 @@ if __name__=="__main__":
     # Whether to convert into hsv colorspace before clustering
     hsv = args["hsv"]
 
-    # turn into Training and prediction part
-
-
-    if full:
-        run_full(img_list, img_dir, scale, K, iterations, epsilon, plot_idx, overlay, outdir, f_ext, hsv)
+    # TODO: turn into Training and prediction part
+    loading = args["load"]
+    if loading:
+        predict_files(
+            img_list=img_list,
+            img_dir=img_dir,
+            plot_idx=plot_idx,
+            output_dir=outdir,
+            f_ext=f_ext,
+            overlay=overlay,
+            classif_path=loading
+            )
     else:
-        run_single(img_list, img_dir, scale, K, iterations, epsilon, plot_idx, overlay, outdir, f_ext, hsv)
-
+        create_classifier(
+            img_list = img_list,
+            img_dir = img_dir,
+            scale=scale,
+            K=K,
+            iterations=iterations,
+            epsilon=epsilon,
+            f_ext=f_ext,
+            hsv=hsv,
+            output_dir=outdir
+        )
