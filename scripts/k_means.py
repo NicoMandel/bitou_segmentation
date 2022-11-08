@@ -39,6 +39,9 @@ def parse_args():
     parser.add_argument("--full", help="Taking the entire directory as a single data entry. Long Run duration with high K. \
                         Even longer with no Scale factor. Recommended: Scale 30, K 5. Default is False" , default=False, action="store_true")
     parser.add_argument("--hsv", default=False, action="store_true", help="If set, will convert to hsv colorspace before performing clustering")
+    parser.add_argument("-l", "--load", help="If given, the classifier will be loaded from the file and predictions will be performed. \
+                        If none is given, will train a classifier and store it.",
+                        default=None, type=str)
     args = vars(parser.parse_args())
     return args
 
@@ -188,6 +191,80 @@ def run_single(img_list : str, img_dir : Path, scale : int, K : int, iterations 
                 
         except OSError: raise # FileExistsErros is subclass of OSError
 
+def predict_files(img_list : str, img_dir : Path, plot_idx : int, overlay : bool, output_dir : str, 
+                f_ext : str, classif_path : str):
+    """
+        function to load a classifier and predict 
+    """
+    classif = km_algo.load_classifier(classif_path)
+
+    if plot_idx:
+        img_name = img_list[plot_idx-1]
+        fname = img_dir / (img_name+f_ext)
+        img = read_image(str(fname))
+        mask = classif(img, overlay)
+        plot_images(img, mask, img_name, classif.K)
+    else:
+        print("Predicting on entire directory: {}\t{} files\nUsing classifier: {}".format(
+            img_dir, len(img_list), classif_path
+        ))
+        print("Classifier settings: {} classes\t{}%% scale,{}\thsv: {}\tOverlay: {}".format(
+            classif.K, classif.scale, classif.hsv, overlay
+        ))
+
+        # TODO: find a way here to put in the name if it's a single image classifier or full images classifier 
+        outdir_name = "K-{}_scale-{}_hsv-{}_Overlay-{}".format(classif.K, classif.scale, classif.hsv, overlay)
+        outdir = os.path.join(output_dir, outdir_name)
+        print("Writing out to directory: {}".format(outdir))
+        try:
+            mkdir(outdir)
+            # Section to read the entire directory
+            for img_name in tqdm(img_list):
+                # input processing
+                fname = img_dir / (img_name+f_ext)
+                img = read_image(str(fname))
+
+                # prediction
+                mask = classif(img, overlay)
+
+                # Save the image
+                outfig = os.path.join(outdir, img_name + ".jpg")
+                tqdm.write("Saving to: {}".format(outfig))
+                save_image(outfig, mask)
+                
+        except OSError: raise # FileExistsErros is subclass of OSError
+
+
+
+def create_classifier(img_list : str, img_dir : Path, scale : int, K : int, iterations : int, epsilon : float, f_ext : str, hsv : bool, output_dir : str):
+    """
+        function to create a classifier and store it
+    """
+    if plot_idx:
+
+        img_name = img_list[plot_idx-1]
+        fname = img_dir / (img_name+f_ext)
+        print("Creating classifier with image:{}".format(
+            fname
+        ))
+        print("Classifier settings: Clusters: {}, scale: {}, hsv: {}".format(
+            K, scale, hsv
+        ))
+
+        img = read_image(str(fname))
+        classif = km_algo(K=K, hsv=hsv, scale=scale)
+        classif.fit(img)
+
+        classif_name = "kmeans_K-{}_scale-{}_hsv-{}_img-{}".format(
+            K, scale, hsv, img_name
+        )
+        outpath = os.path.join(output_dir, classif_name)
+        classif.save_classifier(outpath)
+    else:
+        raise NotImplementedError
+        # TODO: continue here - doing this for a full classifier
+        
+
 
 if __name__=="__main__":
     args = parse_args()
@@ -213,6 +290,9 @@ if __name__=="__main__":
 
     # Whether to convert into hsv colorspace before clustering
     hsv = args["hsv"]
+
+    # turn into Training and prediction part
+
 
     if full:
         run_full(img_list, img_dir, scale, K, iterations, epsilon, plot_idx, overlay, outdir, f_ext, hsv)

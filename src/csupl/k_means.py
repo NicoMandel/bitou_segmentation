@@ -136,16 +136,22 @@ def save_image(outfig : str, mask : np.ndarray) -> None:
 
 class km_algo:
 
-    def __init__(self, K : int = 4, attempts : int = 10, iterations : int =100, epsilon : float = 0.2) -> None:
+    def __init__(self, K : int = 4, attempts : int = 10, iterations : int =100, epsilon : float = 0.2,
+                scale : int = None, hsv : bool = False, overlay : bool = False) -> None:
         self.km = KMeans(K, max_iter=iterations, tol=epsilon, random_state=42)
         # self.labels = None
         self.centers = None
         self.K = K
 
+        self.hsv = hsv
+        self.scale = scale
+        # self.overlay = overlay
+
     def fit(self, img : np.ndarray):
         """
             Fitting on a single image
         """
+        img = self._preprocess_img(img, "fit")
         vect = self._preprocess(img)
         self.km.fit(vect)
         # self.labels = self.km.labels_
@@ -163,8 +169,12 @@ class km_algo:
         return res, label
 
 
-    def __call__(self, inp : np.ndarray) -> Any:
-        return self.predict(inp)
+    def __call__(self, inp : np.ndarray, overlay : bool) -> np.ndarray:
+        inp = self._preprocess_img(inp, "predict")
+        inp = self._preprocess(inp)
+        m, l = self.predict(inp)
+        m = self._postprocess_mask(m, l, overlay)
+        return m
     
     def _lookup(self, idx : np.ndarray):
         raise NotImplementedError
@@ -173,11 +183,15 @@ class km_algo:
         vect = img.reshape((-1,3))
         return np.float32(vect)
     
-    def _preprocess_img(self, img: np.ndarray, scale : int, hsv : bool) -> np.ndarray:
+    def _preprocess_img(self, img: np.ndarray, mode : str = "predict") -> np.ndarray:
         """
             Function to preprocess a single image
         """
-        pass
+        if self.scale and mode == "fit":
+            img = resize_img(img, self.scale)
+        if self.hsv:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        return img
 
     def _preprocess_batch(self, img_batch : np.ndarray) -> np.ndarray:
         """
@@ -185,11 +199,23 @@ class km_algo:
         """
         raise NotImplementedError
 
-    def _postprocess_img(self, img: np.ndarray, hsv : bool) -> np.ndarray:
+    def _postprocess_img(self, img: np.ndarray) -> np.ndarray:
         """
             Function to postprocess a single image
         """
-        pass
+        if self.hsv:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        return img
+    
+    def _postprocess_mask(self, mask : np.ndarray, labels : np.ndarray, overlay : bool) -> np.ndarray:
+        """
+            Function to postprocess a mask
+        """
+        mask = self._postprocess_img(mask)
+        if overlay:
+            mask = decode_colormap(mask, labels, self.K)
+        return mask
+
 
     def _postprocess_batch(self, img_batch: np.ndarray, hsv : bool) -> np.ndarray:
         """
@@ -197,16 +223,20 @@ class km_algo:
         """
         raise NotImplementedError
     
-    def calculate_distance(self, inp : np.ndarray, tol : float = None):
+    def calculate_distance(self, inp : np.ndarray, tol : list = None):
         """
             Function to calculate the distance to the centers with a tolerance
+            TODO: used for the watershed algorithm prediction
         """
+        raise NotImplementedError
         if tol is None:
             tol = 255. / (self.K * 2)       # roughly half the distance
         
         # use norm function
         dist = np.linalg.norm(inp, self.centers)
 
+
+    # Saving and loading functions
     def save_classifier(self, fname : str, f_ext : str=".pkl"):
         fn = fname + f_ext
         with open(fn, 'wb') as f:
