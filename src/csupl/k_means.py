@@ -10,6 +10,8 @@ import cv2
 import matplotlib.pyplot as plt
 # plt.rcParams['figure.dpi'] = 300
 from sklearn.cluster import KMeans
+import pickle
+from pathlib import Path
 
 
 colour_code = np.array([(220, 220, 220),
@@ -105,11 +107,13 @@ def cluster_img(img : np.array, K : int = 4, attempts : int = 10, iterations : i
     res = res.reshape((img.shape))
     return res, label
 
-def get_image_list(dir : str, f_ext : str = ".JPG") -> list:
+def get_image_list(dir : Path, f_ext : str = ".JPG") -> list:
     img_list = list([x.stem for x in dir.glob("*"+f_ext)])
     return img_list
     
 def read_image(img_path : str) -> np.array:
+    if isinstance(img_path, Path):
+        img_path = str(img_path)
     img = cv2.imread(img_path)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img
@@ -154,7 +158,7 @@ class km_algo:
         vect = self._preprocess(img)
         label = self.km.predict(vect)
         label = label.flatten()
-        res = self.center[label]
+        res = self.centers[label]
         res = res.reshape((img.shape))
         return res, label
 
@@ -169,6 +173,30 @@ class km_algo:
         vect = img.reshape((-1,3))
         return np.float32(vect)
     
+    def _preprocess_img(self, img: np.ndarray, scale : int, hsv : bool) -> np.ndarray:
+        """
+            Function to preprocess a single image
+        """
+        pass
+
+    def _preprocess_batch(self, img_batch : np.ndarray) -> np.ndarray:
+        """
+            Function to preprocess batch of images
+        """
+        raise NotImplementedError
+
+    def _postprocess_img(self, img: np.ndarray, hsv : bool) -> np.ndarray:
+        """
+            Function to postprocess a single image
+        """
+        pass
+
+    def _postprocess_batch(self, img_batch: np.ndarray, hsv : bool) -> np.ndarray:
+        """
+            Function to postprocess a batch of images
+        """
+        raise NotImplementedError
+    
     def calculate_distance(self, inp : np.ndarray, tol : float = None):
         """
             Function to calculate the distance to the centers with a tolerance
@@ -179,4 +207,17 @@ class km_algo:
         # use norm function
         dist = np.linalg.norm(inp, self.centers)
 
+    def save_classifier(self, fname : str, f_ext : str=".pkl"):
+        fn = fname + f_ext
+        with open(fn, 'wb') as f:
+            pickle.dump(self, f)
+        print("Saved to: {}".format(fn))
+
+    @classmethod
+    def load_classifier(cls, fname : str, f_ext : str = ".pkl"):
+        fn = fname + f_ext
+        print("Loading from: {}".format(fn))
+        with open(fn, 'rb') as f:
+            classif = pickle.load(f)
+        return classif
         
