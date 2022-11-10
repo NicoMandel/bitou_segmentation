@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 import pickle
 from pathlib import Path
+from itertools import combinations
+from scipy.spatial.distance import cdist
 
 
 colour_code = np.array([(220, 220, 220),
@@ -165,7 +167,7 @@ class km_algo:
         """
         vect = self._preprocess(img)
         label = self.km.predict(vect)
-        label = label.flatten()
+        # label = label.flatten()
         res = self.centers[label]
         res = res.reshape((img.shape))
         return res, label
@@ -192,7 +194,7 @@ class km_algo:
             img = resize_img(img, self.scale)
         if self.hsv:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        return img
+        return img        
 
     def _postprocess_img(self, img: np.ndarray) -> np.ndarray:
         """
@@ -202,26 +204,68 @@ class km_algo:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         return img
     
-    def _postprocess_mask(self, mask : np.ndarray, labels : np.ndarray, overlay : bool) -> np.ndarray:
+    def _postprocess_mask(self, mask : np.ndarray, labels : np.ndarray, overlay : bool, classes : int = None) -> np.ndarray:
         """
             Function to postprocess a mask
         """
         mask = self._postprocess_img(mask)
         if overlay:
-            mask = decode_colormap(mask, labels, self.K)
+            #
+            mask = decode_colormap(mask, labels, self.K if classes is None else classes)
         return mask
 
-    def calculate_distance(self, inp : np.ndarray, tol : list = None):
+    def calculate_distance(self, img : np.ndarray, tol : float = 0.25):
         """
             Function to calculate the distance to the centers with a tolerance
-            TODO: used for the watershed algorithm prediction
+            TODO: watershed algorithm prediction
+            In HSV:
+                * hue: 0 - 179 (angle)
+                * saturation: 0 - 255
+                * value: 0 - 255
+            In RGB: 0 - 255
         """
-        raise NotImplementedError
-        if tol is None:
-            tol = 255. / (self.K * 2)       # roughly half the distance
+        # tol should be a list of tolerance per dimension. Depending on the range of the axis
+        inp = self._preprocess(img)
+        outp = np.zeros((inp.shape[0], 1))
+
+        mindist = self._min_dist()
+        for i in range(mindist.shape[1]):
+            tolvec = tol * mindist[i,:]
+            cvec = self.centers[i,:]
+            darr = np.abs(inp - cvec)
+            dtol_arr = (darr - tolvec)
+            # dtol_arr = dtol_arr[dtol_arr < 0.
+            # .sum(axis=1)
+            # dtol_arr = dtol_arr * -1.
+            outp[(dtol_arr < 0.).sum(axis=1) == inp.shape[1]] = i+1 
+            # b_arr = np.isclose(inp, rvec, rtol=tol)    # todo: figure out rtol and atol
+            # outp[b_arr] = i+1
+
+        outp = outp.flatten().astype(np.int)
+        # to make this equal to the predict function, it should output an array with the set colors already as the first part of the tuple
+        ncenters = np.insert(self.centers, 0, np.array([0., 0., 0.]), 0)
+        # and in the second part of the tuple a long vector with the labels - that can be used by "postprocess"
+        res = ncenters[outp]
+        res = res.reshape((img.shape))
+        # but for "postprocess_mask" this is irrelevant - the mask is only used to create the image size. Outp is important
+        return res, outp
         
-        # use norm function
-        dist = np.linalg.norm(inp, self.centers)
+
+    def _min_dist(self) -> np.ndarray:
+        """
+            Function to calculate the minimum distance of the center array
+        """
+        md = np.ones_like(self.centers) * 255.
+        for k in range(0,self.centers.shape[1]):
+            colvec = self.centers[:,k].astype(np.int)
+            pairs = list(combinations(range(0,len(colvec)), 2))
+            dmat = np.ones((len(colvec), len(colvec))) * 255.
+            for i,j in pairs:
+                d = np.abs(colvec[i] - colvec[j])
+                dmat[i,j] = dmat[j,i] = d
+            md[:,k] = dmat.min(axis=0)
+        return md
+
 
 
     # Saving and loading functions

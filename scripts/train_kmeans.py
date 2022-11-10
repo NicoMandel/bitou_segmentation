@@ -136,7 +136,7 @@ def create_classifier(img_list : str, img_dir : Path, scale : int, K : int, iter
         img = read_image(str(fname))
         
         # actual fitting line
-        img = classif.preprocess_img(img)
+        img = classif.preprocess_img(img, mode="fit")
         classif.fit(img)
         ######
         classif_name = "kmeans_K-{}_scale-{}_{}_img-{}".format(
