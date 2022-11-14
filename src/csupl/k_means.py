@@ -16,11 +16,11 @@ from itertools import combinations
 from scipy.spatial.distance import cdist
 
 
-colour_code = np.array([(220, 220, 220),
+colour_code = np.array([(250, 250, 250),
                     (128, 0, 0),
                     (0, 128, 0),  # class
                     (0, 0, 128),
-                    (64, 128, 0),
+                    (0, 128, 192),
                     (192, 128, 0),   # background
         (70, 70, 70),      # Buildings
         (190, 153, 153),   # Fences
@@ -214,7 +214,7 @@ class km_algo:
             mask = decode_colormap(mask, labels, self.K if classes is None else classes)
         return mask
 
-    def calculate_distance(self, img : np.ndarray, tol : float = 0.25):
+    def calculate_distance(self, img : np.ndarray, tol : float = 1.):
         """
             Function to calculate the distance to the centers with a tolerance
             TODO: watershed algorithm prediction
@@ -225,11 +225,12 @@ class km_algo:
             In RGB: 0 - 255
         """
         # tol should be a list of tolerance per dimension. Depending on the range of the axis
+        img = self.preprocess_img(img)
         inp = self._preprocess(img)
-        outp = np.zeros((inp.shape[0], 1))
+        outp = np.zeros(inp.shape[0]).astype(np.int)
 
         mindist = self._min_dist()
-        for i in range(mindist.shape[1]):
+        for i in range(self.K):
             tolvec = tol * mindist[i,:]
             cvec = self.centers[i,:]
             darr = np.abs(inp - cvec)
@@ -241,9 +242,9 @@ class km_algo:
             # b_arr = np.isclose(inp, rvec, rtol=tol)    # todo: figure out rtol and atol
             # outp[b_arr] = i+1
 
-        outp = outp.flatten().astype(np.int)
+        outp = outp.flatten()
         # to make this equal to the predict function, it should output an array with the set colors already as the first part of the tuple
-        ncenters = np.insert(self.centers, 0, np.array([0., 0., 0.]), 0)
+        ncenters = np.insert(self.centers, 0, np.array([179., 255., 255.]), 0)
         # and in the second part of the tuple a long vector with the labels - that can be used by "postprocess"
         res = ncenters[outp]
         res = res.reshape((img.shape))
@@ -256,13 +257,24 @@ class km_algo:
             Function to calculate the minimum distance of the center array
         """
         md = np.ones_like(self.centers) * 255.
-        for k in range(0,self.centers.shape[1]):
-            colvec = self.centers[:,k].astype(np.int)
-            pairs = list(combinations(range(0,len(colvec)), 2))
-            dmat = np.ones((len(colvec), len(colvec))) * 255.
+        pairs = list(combinations(range(0, self.K), 2))
+        d_3 = np.ones((self.K, self.K, self.centers.shape[1])) * 255.
+        for i,j in pairs:
+            d = np.abs(self.centers[i,:].astype(np.int) - self.centers[j,:].astype(np.int))
+            d_3[i,j] = d_3[j,i] = d
+        return d_3.min(axis=0)
+        d1 = d_3.min(axis=0)
+        d2 = d_3.min(axis=1)
+        d3 = d_3.min(axis=2)
+
+
+        for k in range(0, self.K):
+            colvec = self.centers[k,:].astype(np.int)
+            pairs = list(combinations(range(0, self.K), 2))
+            dmat = np.ones((self.K, self.K, len(colvec))) * 255.
             for i,j in pairs:
                 d = np.abs(colvec[i] - colvec[j])
-                dmat[i,j] = dmat[j,i] = d
+                dmat[i,j,:] = dmat[j,i,:] = d
             md[:,k] = dmat.min(axis=0)
         return md
 

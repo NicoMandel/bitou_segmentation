@@ -51,7 +51,7 @@ def predict_files(img_list : str, img_dir : Path, plot_idx : int, overlay : bool
         fname = img_dir / (img_name+f_ext)
         img = read_image(str(fname))
         mask = classif(img, overlay)
-        nmask, nlabel = classif.calculate_distance(img)
+        nmask, nlabel = classif.calculate_distance(img, tol=0.5)
         # todo - posprocess similary to the other pass
         nm = classif._postprocess_mask(nmask, nlabel, overlay, classes = classif.K+1)
         plot_images(img, nm, img_name, classif.K)
