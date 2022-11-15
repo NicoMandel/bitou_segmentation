@@ -6,13 +6,15 @@
     ! k means is unsupervised, KNN is supervised
     All data imported rom csupl
 """
-from csupl.k_means import *
 import argparse
 # from sklearn.cluster import KMeans
 import os.path
 from os import mkdir
 from pathlib import Path
 from tqdm import tqdm
+
+from csupl.k_means import *
+from csupl.utils import read_image, plot_images, save_image, get_image_list
 
 def parse_args():
     """
@@ -82,7 +84,7 @@ def predict_files(img_list : str, img_dir : Path, plot_idx : int, overlay : bool
                 if tolerance:
                     nmask, nlabel = classif.calculate_distance(img, tol = tolerance)
                     mask = classif._postprocess_mask(nmask, nlabel, overlay, classes = classif.K+1)
-                    
+
                 # Save the image
                 outfig = os.path.join(outdir, img_name + ".jpg")
                 tqdm.write("Saving to: {}".format(outfig))

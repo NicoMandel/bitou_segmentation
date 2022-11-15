@@ -6,13 +6,14 @@
     ! k means is unsupervised, KNN is supervised
     All data imported rom csupl
 """
-from csupl.k_means import *
 import argparse
 # from sklearn.cluster import KMeans
 import os.path
 from os import mkdir
 from pathlib import Path
 from tqdm import tqdm
+from csupl.k_means import *
+from csupl.utils import read_image, plot_images, save_image, get_image_list
 
 def parse_args():
     """
