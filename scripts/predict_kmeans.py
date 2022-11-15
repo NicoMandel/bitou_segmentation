@@ -33,11 +33,13 @@ def parse_args():
     parser.add_argument("--file-extension", help="Image file extension, with dot. Defaults to JPG", default=".JPG")
     parser.add_argument("-p", "--plot", help="Index to plot. If given, will not write directory out. 1-indexed!", default=0, type=int)
     parser.add_argument("-c", "--config", help="Path to load the classifier from", default=None, type=str)
+    parser.add_argument("-t", "--tolerance", help="Tolerance. Used to define a tolerance for the prediction - will calculate masks using distances of clusters \
+                        defaults to None. If None given, labels will be as proposed. Try 1.0 first", type=float, default=None)
     args = vars(parser.parse_args())
     return args
 
 def predict_files(img_list : str, img_dir : Path, plot_idx : int, overlay : bool, output_dir : str, 
-                f_ext : str, classif_path : str):
+                f_ext : str, classif_path : str, tolerance : float):
     """
         function to load a classifier and predict 
     """
@@ -51,10 +53,10 @@ def predict_files(img_list : str, img_dir : Path, plot_idx : int, overlay : bool
         fname = img_dir / (img_name+f_ext)
         img = read_image(str(fname))
         mask = classif(img, overlay)
-        nmask, nlabel = classif.calculate_distance(img, tol=0.5)
-        # todo - posprocess similary to the other pass
-        nm = classif._postprocess_mask(nmask, nlabel, overlay, classes = classif.K+1)
-        plot_images(img, nm, img_name, classif.K)
+        if tolerance:
+            nmask, nlabel = classif.calculate_distance(img, tol = tolerance)
+            mask = classif._postprocess_mask(nmask, nlabel, overlay, classes = classif.K+1)
+        plot_images(img, mask, img_name, classif.K)
     else:
         print("Predicting on entire directory: {}\t{} files\nUsing classifier: {}".format(
             img_dir, len(img_list), classif_path
@@ -63,6 +65,7 @@ def predict_files(img_list : str, img_dir : Path, plot_idx : int, overlay : bool
             classif.K, classif.scale, "hsv" if classif.hsv else "rgb", overlay
         ))
 
+        output_dir += "_{}".format(tolerance) if tolerance is not None else ""
         outdir_name = os.path.basename(classif_path).split(".")[0]
         outdir = os.path.join(output_dir, outdir_name)
         print("Writing out to directory: {}".format(outdir))
@@ -76,7 +79,10 @@ def predict_files(img_list : str, img_dir : Path, plot_idx : int, overlay : bool
 
                 # prediction
                 mask = classif(img, overlay)
-
+                if tolerance:
+                    nmask, nlabel = classif.calculate_distance(img, tol = tolerance)
+                    mask = classif._postprocess_mask(nmask, nlabel, overlay, classes = classif.K+1)
+                    
                 # Save the image
                 outfig = os.path.join(outdir, img_name + ".jpg")
                 tqdm.write("Saving to: {}".format(outfig))
@@ -99,6 +105,9 @@ if __name__=="__main__":
     # Reading image
     plot_idx = args["plot"]
 
+    # Tolerance
+    tolerance = args["tolerance"]
+
     # TODO: turn into Training and prediction part
     cpath = args["config"]
     predict_files(
@@ -108,5 +117,6 @@ if __name__=="__main__":
         output_dir=outdir,
         f_ext=f_ext,
         overlay=overlay,
-        classif_path=cpath
+        classif_path=cpath,
+        tolerance=tolerance
         )

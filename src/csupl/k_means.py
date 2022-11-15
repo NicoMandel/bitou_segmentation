@@ -16,13 +16,13 @@ from itertools import combinations
 from scipy.spatial.distance import cdist
 
 
-colour_code = np.array([(250, 250, 250),
-                    (128, 0, 0),
-                    (0, 128, 0),  # class
-                    (0, 0, 128),
-                    (0, 128, 192),
-                    (192, 128, 0),   # background
-        (70, 70, 70),      # Buildings
+colour_code = np.array([(0, 0, 0),      #black
+                    (128, 0, 0),        #red
+                    (0, 128, 0),  # green
+                    (0, 0, 128),        # blue
+                    (0, 128, 192),      # turqouise
+                    (192, 128, 0),   # brown
+        (192, 192, 192),      # Buildings
         (190, 153, 153),   # Fences
         (72, 0, 90),       # Other
         (220, 20, 60),     # Pedestrians
