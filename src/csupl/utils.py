@@ -60,6 +60,8 @@ def disable_cluster(img : np.array, cluster : int, labels, color : list = [255,2
     Section on image function
 """
 def get_image_list(dir : Path, f_ext : str = ".JPG") -> list:
+    if isinstance(dir, str):
+        dir = Path(dir)
     img_list = list([x.stem for x in dir.glob("*"+f_ext)])
     return img_list
     
@@ -82,6 +84,52 @@ def plot_images(img : np.ndarray, mask : np.ndarray, img_name : str, K : int) ->
     fig.suptitle(f"Image: {img_name}, Clusters: {K}")
     plt.show()
     print("Test line for debugging")
+
+def plot_grayscale(img : np.ndarray, mask : np.ndarray, title : str) -> None:
+    fig, axs = plt.subplots(1,2)
+    axs[0].imshow(img)
+    axs[0].axis('off')
+    axs[0].set_title('Original')
+
+    axs[1].imshow(mask, cmap='gray', vmin=0, vmax=255)
+    axs[1].axis('off')
+    axs[1].set_title('Grayscale')
+    fig.suptitle(f"{title}")
+    plt.show()
+
+def plot_grayscales(mask_1 : np.ndarray, mask_2 : np.ndarray, title : str) -> None:
+    fig, axs = plt.subplots(1,2)
+    axs[0].imshow(mask_1, cmap="gray", vmin=0, vmax=255)
+    axs[0].axis('off')
+    axs[0].set_title('Mask 1')
+
+    axs[1].imshow(mask_2, cmap='gray', vmin=0, vmax=255)
+    axs[1].axis('off')
+    axs[1].set_title('Mask 2')
+    fig.suptitle(f"{title}")
+    plt.show()
+
+def plot_grayscales_diff(mask_1 : np.ndarray, mask_2 : np.ndarray, title : str) -> None:
+    fig, axs = plt.subplots(2,2)
+    axs[0,0].imshow(mask_1, cmap="gray", vmin=0, vmax=255)
+    axs[0,0].axis('off')
+    axs[0,0].set_title('Mask 1')
+
+    axs[0,1].imshow(mask_2, cmap='gray', vmin=0, vmax=255)
+    axs[0,1].axis('off')
+    axs[0,1].set_title('Mask 2')
+
+    diff = cv2.absdiff(mask_1, mask_2)
+    axs[1,0].imshow(diff, cmap="gray", vmin=0, vmax=255)
+    axs[1,0].set_title("Difference")
+    axs[1,0].axis('off')
+
+    axs[1,1].imshow((255-diff), cmap="gray", vmin=0, vmax=255)
+    axs[1,1].set_title("Inverted Difference")
+    axs[1,1].axis('off')
+
+    fig.suptitle(f"{title}")
+    plt.show()
 
 def save_image(outfig : str, mask : np.ndarray) -> None:
     cv2.imwrite(outfig, cv2.cvtColor(mask, cv2.COLOR_BGR2RGB))
