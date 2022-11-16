@@ -13,7 +13,7 @@ import pickle
 
 from itertools import combinations
 
-from src.csupl.utils import decode_colormap, resize_img
+from csupl.utils import decode_colormap, resize_img
 
 
 def cluster_img(img : np.array, K : int = 4, attempts : int = 10, iterations : int = 100, epsilon : float = 0.2):
@@ -97,7 +97,8 @@ class km_algo:
         inp = self.preprocess_img(inp, "predict")
         m, l = self.predict(inp)
         m = self._postprocess_mask(m, l, overlay)
-        return m
+        l = l.reshape(inp.shape[:-1])
+        return m, l
     
     def _lookup(self, idx : np.ndarray):
         raise NotImplementedError
@@ -168,6 +169,7 @@ class km_algo:
         # and in the second part of the tuple a long vector with the labels - that can be used by "postprocess"
         res = ncenters[outp]
         res = res.reshape((img.shape))
+        outp = outp.reshape(img.shape[:-1])
         # but for "postprocess_mask" this is irrelevant - the mask is only used to create the image size. Outp is important
         return res, outp
         

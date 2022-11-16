@@ -26,6 +26,8 @@ class Watershed:
         """
         markers = self.__preprocess(img)
         out_img = cv2.watershed(img, markers)
+        out_img = self.__postprocess(out_img)
+        return out_img
 
     def __preprocess(self, img : np.ndarray) -> np.ndarray:
         """
@@ -33,8 +35,8 @@ class Watershed:
         """
         pass
 
-    def __postprocess(self):
+    def __postprocess(self, out_img : np.ndarray) -> np.ndarray:
         """
-            Use postprocess to return colour codes and other utilities
+            Use postprocess to return colour codes and other util
         """
         pass

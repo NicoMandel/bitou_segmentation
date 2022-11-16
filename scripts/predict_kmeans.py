@@ -54,7 +54,7 @@ def predict_files(img_list : str, img_dir : Path, plot_idx : int, overlay : bool
         ))
         fname = img_dir / (img_name+f_ext)
         img = read_image(str(fname))
-        mask = classif(img, overlay)
+        mask, _ = classif(img, overlay)
         if tolerance:
             nmask, nlabel = classif.calculate_distance(img, tol = tolerance)
             mask = classif._postprocess_mask(nmask, nlabel, overlay, classes = classif.K+1)
@@ -80,7 +80,7 @@ def predict_files(img_list : str, img_dir : Path, plot_idx : int, overlay : bool
                 img = read_image(str(fname))
 
                 # prediction
-                mask = classif(img, overlay)
+                mask, _ = classif(img, overlay)
                 if tolerance:
                     nmask, nlabel = classif.calculate_distance(img, tol = tolerance)
                     mask = classif._postprocess_mask(nmask, nlabel, overlay, classes = classif.K+1)
