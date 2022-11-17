@@ -9,7 +9,7 @@ import numpy as np
 
 from csupl.watershed import Watershed
 from csupl.utils import get_image_list, plot_images
-from csupl.generate_masks import get_polygon_dict, get_polygon_coordinates, convert_classes, generate_mask_image
+from csupl.generate_masks import get_polygon_dict, get_polygon_coordinates, convert_classes, generate_mask
 
 def get_default_files():
     fdir = os.path.abspath(os.path.dirname(__file__))
@@ -39,7 +39,7 @@ if __name__=="__main__":
         mask = np.copy(labels)
         poly_list = poly_dict[im_f]
         for poly in poly_list:
-            mask = generate_mask_image(mask, poly, 2)
+            mask = generate_mask(mask, poly, 2)
 
         # plot the overlay
         plot_images(img, mask, im_f, ws.classif.K)

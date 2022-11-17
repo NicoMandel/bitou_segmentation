@@ -3,6 +3,7 @@ from pathlib import Path
 from tqdm import tqdm
 import json
 import numpy as np
+import cv2
 
 from csupl.utils import check_path, to_Image
 
@@ -37,13 +38,23 @@ def get_polygon_coordinates(json_dict : dict) -> dict:
 
 def generate_mask_image(mask_img : Image.Image, polygon_coord : list, class_idx : int = 1, whiteout : bool = False) -> Image.Image:
     """
-        Function to generate a single polygon for a single image and return the image
+        Function to generate a single polygon for a single RGB image and return the image
+        Uses Pillow
     """
     # Image modes from Pillow: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-modes
     mask_img = to_Image(mask_img)
     d = ImageDraw.Draw(mask_img)
     d.polygon(polygon_coord, fill=(255, 255, 255) if whiteout else (class_idx,0,0))
     return mask_img
+
+def generate_mask(mask_img : np.ndarray, poly_coord : list, class_idx : int = 1):
+    """
+        Function to generate a polygon mask on a single-channel image
+        uses OpenCV
+    """
+    cv2.fillPoly(mask_img, pts=np.array([poly_coord], dtype=np.int32), color=class_idx)
+    return mask_img
+
 
 def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, f_ext : str, whiteout : bool):
     """
