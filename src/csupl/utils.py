@@ -143,3 +143,11 @@ def resize_img(img : np.array, scale_perc : int = 50) -> np.array:
     dim = (width, height)
     resized = cv2.resize(img, dim, interpolation=cv2.INTER_NEAREST)
     return resized
+
+def check_path(path) -> str:
+    """
+        Function to convert path object to string, if necessary
+    """
+    if isinstance(path, Path):
+        path = str(path)
+    return path
