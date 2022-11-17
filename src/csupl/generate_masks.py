@@ -1,6 +1,17 @@
 from PIL import Image, ImageDraw
 from pathlib import Path
 from tqdm import tqdm
+import json
+import numpy as np
+
+from csupl.utils import check_path, to_Image
+
+def get_polygon_dict(fpath : str) -> dict:
+    fpath = check_path(fpath)
+    json_f = open(fpath, "r")
+    json_dict = json.load(json_f)
+
+    return json_dict["_via_img_metadata"]
 
 def get_polygon_coordinates(json_dict : dict) -> dict:
     """
@@ -9,8 +20,8 @@ def get_polygon_coordinates(json_dict : dict) -> dict:
     """
     poly_dict = {}
     for _, v in json_dict.items():
-        if len(v['regions']) > 1:
-            print(v['filename'])
+        # if len(v['regions']) > 1:
+        #     print(v['filename'])
         if v['regions']:
             xy_list = []
             for reg in v['regions']:
@@ -24,15 +35,15 @@ def get_polygon_coordinates(json_dict : dict) -> dict:
     
     return poly_dict
 
-def generate_mask_image(mask_img : Image.Image, polygon_coord : list, whiteout : bool = False) -> Image.Image:
+def generate_mask_image(mask_img : Image.Image, polygon_coord : list, class_idx : int = 1, whiteout : bool = False) -> Image.Image:
     """
         Function to generate a single polygon for a single image and return the image
     """
     # Image modes from Pillow: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-modes
+    mask_img = to_Image(mask_img)
     d = ImageDraw.Draw(mask_img)
-    d.polygon(polygon_coord, fill=(255, 255, 255) if whiteout else (1,0,0))
+    d.polygon(polygon_coord, fill=(255, 255, 255) if whiteout else (class_idx,0,0))
     return mask_img
-
 
 def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, f_ext : str, whiteout : bool):
     """
@@ -48,3 +59,7 @@ def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, f_ext : 
             mask_im = generate_mask_image(mask_im, poly_coord, whiteout)
         mask_path = mask_dir / ".".join([k, f_ext])
         mask_im.save(mask_path, "png")
+
+def convert_classes(labels : np.ndarray, keep_class : int) -> np.ndarray:
+    labels[labels != keep_class] = 0
+    return labels

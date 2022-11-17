@@ -8,6 +8,7 @@ import numpy as np
 import cv2
 from pathlib import Path
 import matplotlib.pyplot as plt
+from PIL import Image
 
 """
     Section on plotting images
@@ -151,3 +152,13 @@ def check_path(path) -> str:
     if isinstance(path, Path):
         path = str(path)
     return path
+
+def to_numpy(img) -> np.ndarray:
+    if isinstance(img, Image.Image):
+        img = np.array(img)
+    return img
+
+def to_Image(img) -> Image.Image:
+    if isinstance(img, np.ndarray):
+        img = Image.fromarray(img)
+    return img

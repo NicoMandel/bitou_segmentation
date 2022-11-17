@@ -7,21 +7,22 @@
 import cv2
 import numpy as np
 from csupl.k_means import km_algo
+from csupl.utils import to_numpy
 
 
 class Watershed:
 
-    def __init__(self) -> None:
+    def __init__(self, sand_label : int = 1) -> None:
         # TODO: initialise the best k_means classifier here
         # TODO afterwards - use for pre-labelling
         # TODO afterwards - generate masks with pre-labelled data & overlay from hand-generated mask
         fpath = "results/kmeans/classifiers/kmeans_K-3_scale-20_hsv_full.pkl"
         self.classif = km_algo.load_classifier(fpath)
-        self.sand_label = 1
+        self.sand_label = sand_label
         self.tolerance = 1.0
 
 
-    def __call__(self, img : np.ndarray, markers : np.ndarray) -> np.ndarray:
+    def __call__(self, img : np.ndarray) -> np.ndarray:
         """
             Function to watershed an image.
             Will first preprocess, then call, then postprocess
@@ -32,6 +33,7 @@ class Watershed:
                 * sure classes should be labelled with a number
                 * unknown should be marked with 0 
         """
+        img = to_numpy(img)
         markers = self.__preprocess(img)
         out_img = cv2.watershed(img, markers.astype(np.int32))
         out_img = self.__postprocess(out_img)
@@ -53,5 +55,5 @@ class Watershed:
                 * rest are classes
         """
         kernel = np.ones((5,5), np.uint8)
-        n_img = cv2.dilate(out_img.astype(np.int32), kernel, 1)
-        return n_img
+        n_img = cv2.dilate(out_img.astype(np.float32), kernel, 1)
+        return n_img.astype(np.uint8)

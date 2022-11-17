@@ -48,9 +48,6 @@ if __name__=="__main__":
     else:
         config_file = args["config"]
 
-    json_f = open(config_file, "r")
-    json_dict = json.load(json_f)
-
-    json_metadata = json_dict["_via_img_metadata"]
-    polygon_dict = get_polygon_coordinates(json_metadata)
+    json_dict = get_polygon_dict(config_file)
+    polygon_dict = get_polygon_coordinates(json_dict)
     write_masks(polygon_dict, img_directory, mask_directory, f_ext, whiteout)
