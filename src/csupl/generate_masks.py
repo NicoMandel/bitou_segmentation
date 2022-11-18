@@ -5,7 +5,16 @@ import json
 import numpy as np
 import cv2
 
-from csupl.utils import check_path, to_Image
+from csupl.utils import check_path, to_Image, to_Path
+
+def get_config(conf_f : str, img_dir : str) -> dict:
+    if conf_f is None:
+        img_dir = to_Path(img_dir)
+        conf_f = next(img_dir.glob("*.json"))
+
+    json_dict = get_polygon_dict(conf_f)
+    poly_dict = get_polygon_coordinates(json_dict)
+    return poly_dict
 
 def get_polygon_dict(fpath : str) -> dict:
     fpath = check_path(fpath)
@@ -47,13 +56,13 @@ def generate_mask_image(mask_img : Image.Image, polygon_coord : list, class_idx 
     d.polygon(polygon_coord, fill=(255, 255, 255) if whiteout else (class_idx,0,0))
     return mask_img
 
-def generate_mask(mask_img : np.ndarray, poly_coord : list, class_idx : int = 1):
+def generate_labels(label_img : np.ndarray, poly_coord : list):
     """
         Function to generate a polygon mask on a single-channel image
         uses OpenCV
     """
-    cv2.fillPoly(mask_img, pts=np.array([poly_coord], dtype=np.int32), color=class_idx)
-    return mask_img
+    cv2.fillPoly(label_img, pts=np.array([poly_coord], dtype=np.int32), color=int(label_img.max() + 1))
+    return label_img
 
 
 def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, f_ext : str, whiteout : bool):
@@ -71,6 +80,15 @@ def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, f_ext : 
         mask_path = mask_dir / ".".join([k, f_ext])
         mask_im.save(mask_path, "png")
 
-def convert_classes(labels : np.ndarray, keep_class : int) -> np.ndarray:
+def write_image(mask_dir : Path, im_fname : str, im_f : np.ndarray, f_ext : str = ".png") -> None:
+    """
+        OpenCVs saving image function:
+        Can be loaded as class indices with cv2.IMREAD_UNCHANGED in the load function
+    """
+    mask_dir = to_Path(mask_dir)
+    m_path = mask_dir / (im_fname + f_ext)
+    cv2.imwrite(str(m_path), im_f)
+
+def merge_classes(labels : np.ndarray, keep_class : int) -> np.ndarray:
     labels[labels != keep_class] = 0
     return labels

@@ -138,7 +138,6 @@ class km_algo:
     def calculate_distance(self, img : np.ndarray, tol : float = 1.):
         """
             Function to calculate the distance to the centers with a tolerance
-            TODO: watershed algorithm prediction
             In HSV:
                 * hue: 0 - 179 (angle)
                 * saturation: 0 - 255

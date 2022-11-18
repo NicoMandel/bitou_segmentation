@@ -1,53 +1,97 @@
-
 """
-Script to generate binary masks from json labels as exported by VGG Image Annotator
-    TODO: continue here:
-        1. overlay for checks
-        2. check against existence of files - with imglist
-        3. check against 
-     !  4. via has a filelist inside ->  "_via_image_id_list": 
-        5. do the file writing as tqdm -> for progress bar
+    Script to generate masks using the watershed algorithm for sand labelling
 """
 
-import json
-import os.path
-import argparse
+from os import path, mkdir
 from pathlib import Path
-from csupl.generate_masks import *
+from tqdm import tqdm
+from argparse import ArgumentParser
+import numpy as np
 
+from csupl.watershed import Watershed
+from csupl.utils import get_image_list, plot_overlaid, overlay_images, decode_colormap_labels, read_image
+from csupl.generate_masks import merge_classes, generate_labels, get_config, write_image
 
 def parse_args():
     """
         Argument parser
     """
-    fdir = os.path.abspath(os.path.dirname(__file__))
-    def_input = os.path.join(fdir, "..", "data", "bitou_test")
-    def_output = os.path.join(os.path.dirname(def_input), "bitou_test_masks") 
-    # def_output = os.path.join(fdir, "..", "data", "bitou_test")
-    parser = argparse.ArgumentParser()
+    fdir = path.abspath(path.dirname(__file__))
+    def_input = path.join(fdir, "..", "bitou_test")
+    
+    parser = ArgumentParser()
     parser.add_argument("-i", "--input", help="Directory to generate masks from", type=str, default=def_input)
-    parser.add_argument("-o", "--output", help="Directory where masks should be output to", type=str, default=def_output)
+    parser.add_argument("-o", "--output", help="Directory where label files should be output to. If none, will cycle through images and plot side by side", type=str, default=None)
     parser.add_argument("-c", "--config", help="Location of the config file. If not specified, will look for a .json in the input directory", default=None)
-    parser.add_argument("--file-extension", help="Image file extension, without dot. Defaults to JPG", default="JPG")
-    parser.add_argument("--whiteout", action="store_true", help="If set, will whiteout the mask")
+    parser.add_argument("--file-extension", help="Image file extension to read in, with dot. Defaults to .JPG", default=".JPG")
+    parser.add_argument("--tolerance", type=float, help="Tolerance to be used for the kmeans algorithm nearest neighbor-distance!", default=0.5)
+    parser.add_argument("-w", "--watershed", action="store_true", help="If set to true, will use watershed alorithm to pre-label sand class")
+    #! rethink this distance
+    #! if it can be larger than 0.5, because it is symmetric - will benefit higher classes??
     args = vars(parser.parse_args())
     return args
 
-
 if __name__=="__main__":
-    args  = parse_args()
-
+    args = parse_args()
+    
+    # Files
     img_directory = Path(args["input"])
-    mask_directory = Path(args["output"])
-    f_ext = args["file_extension"]
-    whiteout = args["whiteout"]
+    label_dir = args["output"]
+    in_fext = args["file_extension"]
+    conf_f = args["config"]
 
-    img_list = list([x.stem for x in img_directory.glob("*."+f_ext)])
-    if args["config"] is None:
-        config_file = next(img_directory.glob("*.json"))
-    else:
-        config_file = args["config"]
+    # Getting files and algorithm set up
+    tolerance = args["tolerance"]
+    img_list = get_image_list(img_directory, in_fext)
+    poly_dict = get_config(conf_f, img_directory)
+    watershed = args["watershed"]
+    if watershed:
+        ws = Watershed(tolerance=tolerance)
 
-    json_dict = get_polygon_dict(config_file)
-    polygon_dict = get_polygon_coordinates(json_dict)
-    write_masks(polygon_dict, img_directory, mask_directory, f_ext, whiteout)
+    # Logging
+    print("Reading from directory: {}\t{} files".format(
+        img_directory, len(img_list)
+    ))
+
+    # Setting up output
+    if label_dir is not None:
+        try:
+            ldir = path.join(label_dir, "labels")
+            mdir = path.join(label_dir, "masks")
+            mkdir(ldir)
+            mkdir(mdir)
+            print(f"Writing labels (for loading) to directory: {ldir}")
+            print(f"Writing masks (for visualisation) to directory: {mdir}")
+        except OSError: raise
+    print("Output: {}".format(
+        "plotting" if label_dir is None else label_dir
+    ))
+    
+    for im_f in tqdm(img_list):
+        img_f = img_directory / (im_f + ".JPG")
+        
+        # pre-labelling
+        img = read_image(img_f)
+
+        if watershed:
+            labels = ws(img)
+            labels = merge_classes(labels, 1)
+        else:
+            labels = np.zeros(img.shape[:-1], dtype=np.uint8)
+        # polygon drawing
+        poly_list = poly_dict[im_f]
+        for poly in poly_list:
+            labels = generate_labels(labels, poly)
+
+        mask = decode_colormap_labels(labels)
+        mask = overlay_images(img, mask)
+        if label_dir:
+            try:
+                write_image(ldir, im_f, labels)
+                write_image(mdir, im_f, mask)
+            except OSError: raise
+        else:
+            plot_overlaid(mask, title=im_f)
+            # plot_images(mask, labels, im_f, 0)
+
+

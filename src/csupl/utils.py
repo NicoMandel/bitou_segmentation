@@ -47,10 +47,10 @@ def decode_colormap(mask, labels, num_classes=2):
         colour_map = m.reshape(mask.shape)
         return colour_map
 
-def decode_colormap_labels(labels : np.ndarray, num_classes : int = 2) -> np.ndarray:
+def decode_colormap_labels(labels : np.ndarray) -> np.ndarray:
     out_arr_shape = (labels.shape[:] + (3,)) 
     out_img = np.zeros(out_arr_shape, dtype=np.uint8)
-    for idx in range(0, num_classes):
+    for idx in range(0, labels.max()):
         out_img[labels == idx] = colour_code[idx]
     return out_img
 
@@ -64,7 +64,7 @@ def disable_cluster(img : np.array, cluster : int, labels, color : list = [255,2
     masked = masked.reshape(img.shape)
     return masked
 
-def overlay_images(img : np.ndarray, mask : np.ndarray, alpha : int = 0.5):
+def overlay_images(img : np.ndarray, mask : np.ndarray, alpha : int = 0.7):
     """
         Function to overlay a mask on top of an image
     """
@@ -81,8 +81,7 @@ def get_image_list(dir : Path, f_ext : str = ".JPG") -> list:
     return img_list
     
 def read_image(img_path : str) -> np.array:
-    if isinstance(img_path, Path):
-        img_path = str(img_path)
+    img_path = check_path(img_path)
     img = cv2.imread(img_path)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img
@@ -98,7 +97,6 @@ def plot_images(img : np.ndarray, mask : np.ndarray, img_name : str, K : int) ->
     axs[1].set_title('Clusters')
     fig.suptitle(f"Image: {img_name}, Clusters: {K}")
     plt.show()
-    print("Test line for debugging")
 
 def plot_grayscale(img : np.ndarray, mask : np.ndarray, title : str) -> None:
     fig, axs = plt.subplots(1,2)
@@ -175,6 +173,14 @@ def check_path(path) -> str:
     """
     if isinstance(path, Path):
         path = str(path)
+    return path
+
+def to_Path(path) -> Path:
+    """
+        function to convert string object to path, if necessary
+    """
+    if isinstance(path, str):
+        path = Path(path)
     return path
 
 def to_numpy(img) -> np.ndarray:
