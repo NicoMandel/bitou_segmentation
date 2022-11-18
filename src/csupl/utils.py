@@ -13,7 +13,8 @@ from PIL import Image
 """
     Section on plotting images
 """
-colour_code = np.array([(0, 0, 0),      #black
+colour_code = np.array([
+                    # (0, 0, 0),      #black
                     (128, 0, 0),        #red
                     (0, 128, 0),  # green
                     (0, 0, 128),        # blue
@@ -46,6 +47,13 @@ def decode_colormap(mask, labels, num_classes=2):
         colour_map = m.reshape(mask.shape)
         return colour_map
 
+def decode_colormap_labels(labels : np.ndarray, num_classes : int = 2) -> np.ndarray:
+    out_arr_shape = (labels.shape[:] + (3,)) 
+    out_img = np.zeros(out_arr_shape, dtype=np.uint8)
+    for idx in range(0, num_classes):
+        out_img[labels == idx] = colour_code[idx]
+    return out_img
+
 def disable_cluster(img : np.array, cluster : int, labels, color : list = [255,255,255]) -> np.array:
     """
         Function to disable a cluster from visualisation and return the image
@@ -56,6 +64,12 @@ def disable_cluster(img : np.array, cluster : int, labels, color : list = [255,2
     masked = masked.reshape(img.shape)
     return masked
 
+def overlay_images(img : np.ndarray, mask : np.ndarray, alpha : int = 0.5):
+    """
+        Function to overlay a mask on top of an image
+    """
+    overlaid = cv2.addWeighted(img, alpha, mask, (1-alpha), 0)
+    return overlaid
 
 """
     Section on image function
@@ -132,6 +146,13 @@ def plot_grayscales_diff(mask_1 : np.ndarray, mask_2 : np.ndarray, title : str) 
     fig.suptitle(f"{title}")
     plt.show()
 
+def plot_overlaid(mixed : np.ndarray, title : str = ""):
+    fig = plt.figure()
+    plt.imshow(mixed)
+    plt.axis('off')
+    plt.title(title)
+    plt.show()
+
 def save_image(outfig : str, mask : np.ndarray) -> None:
     cv2.imwrite(outfig, cv2.cvtColor(mask, cv2.COLOR_BGR2RGB))
 
@@ -145,6 +166,9 @@ def resize_img(img : np.array, scale_perc : int = 50) -> np.array:
     resized = cv2.resize(img, dim, interpolation=cv2.INTER_NEAREST)
     return resized
 
+"""
+    Conversion and control section
+"""
 def check_path(path) -> str:
     """
         Function to convert path object to string, if necessary

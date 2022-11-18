@@ -8,7 +8,7 @@ from PIL import Image
 import numpy as np
 
 from csupl.watershed import Watershed
-from csupl.utils import get_image_list, plot_images
+from csupl.utils import get_image_list, plot_images, plot_overlaid, overlay_images, decode_colormap_labels
 from csupl.generate_masks import get_polygon_dict, get_polygon_coordinates, convert_classes, generate_mask
 
 def get_default_files():
@@ -23,7 +23,8 @@ def get_default_files():
 
 if __name__=="__main__":
     img_dir, img_files, config_f = get_default_files()
-    ws = Watershed()
+    tolerance = 1.0
+    ws = Watershed(tolerance=tolerance)
     
     poly_f = get_polygon_dict(config_f)
     poly_dict = get_polygon_coordinates(poly_f)
@@ -41,5 +42,8 @@ if __name__=="__main__":
         for poly in poly_list:
             mask = generate_mask(mask, poly, 2)
 
-        # plot the overlay
-        plot_images(img, mask, im_f, ws.classif.K)
+        # plot the mask
+        # plot_images(img, mask, im_f, ws.classif.K)
+        lab_decoded = decode_colormap_labels(mask, 3)
+        overlaid = overlay_images(np.array(img), lab_decoded, alpha=0.7)
+        plot_overlaid(overlaid)
