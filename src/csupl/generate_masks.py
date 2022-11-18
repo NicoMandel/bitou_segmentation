@@ -56,12 +56,12 @@ def generate_mask_image(mask_img : Image.Image, polygon_coord : list, class_idx 
     d.polygon(polygon_coord, fill=(255, 255, 255) if whiteout else (class_idx,0,0))
     return mask_img
 
-def generate_labels(label_img : np.ndarray, poly_coord : list):
+def generate_labels(label_img : np.ndarray, poly_coord : list, label_idx : int):
     """
         Function to generate a polygon mask on a single-channel image
         uses OpenCV
     """
-    cv2.fillPoly(label_img, pts=np.array([poly_coord], dtype=np.int32), color=int(label_img.max() + 1))
+    cv2.fillPoly(label_img, pts=np.array([poly_coord], dtype=np.int32), color=int(label_idx))
     return label_img
 
 
@@ -87,7 +87,7 @@ def write_image(mask_dir : Path, im_fname : str, im_f : np.ndarray, f_ext : str 
     """
     mask_dir = to_Path(mask_dir)
     m_path = mask_dir / (im_fname + f_ext)
-    cv2.imwrite(str(m_path), im_f)
+    cv2.imwrite(str(m_path), cv2.cvtColor(im_f, cv2.COLOR_BGR2RGB))
 
 def merge_classes(labels : np.ndarray, keep_class : int) -> np.ndarray:
     labels[labels != keep_class] = 0

@@ -13,9 +13,6 @@ from csupl.utils import to_numpy
 class Watershed:
 
     def __init__(self, tolerance : float = 1.0) -> None:
-        # TODO: initialise the best k_means classifier here
-        # TODO afterwards - use for pre-labelling
-        # TODO afterwards - generate masks with pre-labelled data & overlay from hand-generated mask
         fpath = "results/kmeans/classifiers/kmeans_K-3_scale-20_hsv_full.pkl"
         self.classif = km_algo.load_classifier(fpath)
         self.tolerance = tolerance

@@ -15,9 +15,9 @@ from PIL import Image
 """
 colour_code = np.array([
                     # (0, 0, 0),      #black
-                    (128, 0, 0),        #red
+                    (0, 0, 128),        #blue
                     (0, 128, 0),  # green
-                    (0, 0, 128),        # blue
+                    (192, 0, 0),        # red
                     (0, 128, 192),      # turqouise
                     (192, 128, 0),   # brown
         (192, 192, 192),      # Buildings

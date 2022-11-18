@@ -26,8 +26,6 @@ def parse_args():
     parser.add_argument("--file-extension", help="Image file extension to read in, with dot. Defaults to .JPG", default=".JPG")
     parser.add_argument("--tolerance", type=float, help="Tolerance to be used for the kmeans algorithm nearest neighbor-distance!", default=0.5)
     parser.add_argument("-w", "--watershed", action="store_true", help="If set to true, will use watershed alorithm to pre-label sand class")
-    #! rethink this distance
-    #! if it can be larger than 0.5, because it is symmetric - will benefit higher classes??
     args = vars(parser.parse_args())
     return args
 
@@ -80,11 +78,12 @@ if __name__=="__main__":
             labels = np.zeros(img.shape[:-1], dtype=np.uint8)
         # polygon drawing
         poly_list = poly_dict[im_f]
+        poly_idx = labels.max() + 1
         for poly in poly_list:
-            labels = generate_labels(labels, poly)
+            labels = generate_labels(labels, poly, poly_idx)
 
         mask = decode_colormap_labels(labels)
-        mask = overlay_images(img, mask)
+        mask = overlay_images(img, mask, alpha=0.5)
         if label_dir:
             try:
                 write_image(ldir, im_f, labels)
