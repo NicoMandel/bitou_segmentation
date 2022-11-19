@@ -9,10 +9,48 @@ import cv2
 from pathlib import Path
 import matplotlib.pyplot as plt
 from PIL import Image
+import json
 
 """
     Section on plotting images
 """
+
+class ColourDecoder:
+
+    def __init__(self, coldict : dict) -> None:
+        self.colour_dict = coldict
+        self.colour_code = np.asarray([v for v in coldict.values()])
+        # self.num_classes = len(coldict) if num_classes is None else num_classes
+
+    def __call__(self, labels) -> np.ndarray:
+        """
+            Call function. Only requires either 1 or 2 arguments:
+            First argument must be the labels, second the mask
+        """
+        return self._decode_colourmap(labels)
+
+    def _decode_colourmap(self, labels : np.ndarray) -> np.ndarray:
+        """
+            Todo: make this function generic to also work with batches
+        """
+        out_arr_shape = (labels.shape[:] + (3,)) 
+        out_img = np.zeros(out_arr_shape, dtype=np.uint8)
+        for idx in range(0, labels.max()):
+            out_img[labels == idx] = colour_code[idx]
+        return out_img
+        
+    @classmethod
+    def load_colours(cls, fpath):
+        """
+            Function to load a colour decoder from a json file string
+        """
+        fpath = check_path(fpath)
+        print("Loading colour code from: {}".format(fpath))
+        with open(fpath, 'r'):
+            cdict = json.load(fpath)
+        return cls(cdict)
+        
+
 colour_code = np.array([
                     # (0, 0, 0),      #black
                     (0, 0, 128),        #blue

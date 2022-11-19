@@ -137,8 +137,8 @@ if __name__=="__main__":
     else:
         config_file = args["config"]
 
-    json_f = open(config_file, "r")
-    json_dict = json.load(json_f)
+    with open(config_file, "r") as json_f:
+        json_dict = json.load(json_f)
 
     json_metadata = json_dict["_via_img_metadata"]
     polygon_dict = get_polygon_coordinates(json_metadata)
