@@ -51,6 +51,28 @@ class ColourDecoder:
         return cls(cdict)
         
 
+"""
+    Functions for loading labels and images - to be used across all sources - for consistency
+"""
+
+def load_labels(fpath : str) -> np.ndarray:
+    fpath = check_path(fpath)
+    label = cv2.imread(fpath, cv2.IMREAD_UNCHANGED)
+    return label
+
+def load_images(fpath : str) -> np.ndarray:
+    fpath = check_path(fpath)
+    img = cv2.imread(fpath, cv2.IMREAD_UNCHANGED)
+    return img
+
+def _validate_img(img : np.ndarray) -> bool:
+    assert img.shape == 3
+    return True
+
+def _validate_label(label : np.ndarray) -> bool:
+    assert label.shape == 2
+    return True
+
 colour_code = np.array([
                     # (0, 0, 0),      #black
                     (0, 0, 128),        #blue
