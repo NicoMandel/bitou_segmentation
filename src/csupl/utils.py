@@ -10,6 +10,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from PIL import Image
 import json
+import os.path
 
 """
     Section on plotting images
@@ -35,7 +36,7 @@ class ColourDecoder:
         """
         out_arr_shape = (labels.shape[:] + (3,)) 
         out_img = np.zeros(out_arr_shape, dtype=np.uint8)
-        for idx in range(0, labels.max()):
+        for idx in range(0, labels.max() +1):
             out_img[labels == idx] = colour_code[idx]
         return out_img
         
@@ -46,21 +47,30 @@ class ColourDecoder:
         """
         fpath = check_path(fpath)
         print("Loading colour code from: {}".format(fpath))
-        with open(fpath, 'r'):
-            cdict = json.load(fpath)
+        with open(fpath, 'r') as fp:
+            cdict = json.load(fp)
         return cls(cdict)
         
+
+def get_colour_decoder(fpath : str = None) -> ColourDecoder:
+    if fpath is None:
+        pdir = os.path.dirname(os.path.abspath(__file__))
+        confdir = os.path.join(pdir, '..', '..', 'config')
+        fpath = next(Path(confdir).glob('*_code.json'))
+    cd = ColourDecoder.load_colours(fpath)
+    return cd
+
 
 """
     Functions for loading labels and images - to be used across all sources - for consistency
 """
 
-def load_labels(fpath : str) -> np.ndarray:
+def load_label(fpath : str) -> np.ndarray:
     fpath = check_path(fpath)
     label = cv2.imread(fpath, cv2.IMREAD_UNCHANGED)
     return label
 
-def load_images(fpath : str) -> np.ndarray:
+def load_image(fpath : str) -> np.ndarray:
     fpath = check_path(fpath)
     img = cv2.imread(fpath, cv2.IMREAD_UNCHANGED)
     return img

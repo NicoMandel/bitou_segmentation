@@ -9,7 +9,7 @@ from argparse import ArgumentParser
 import numpy as np
 
 from csupl.watershed import Watershed
-from csupl.utils import get_image_list, plot_overlaid, overlay_images, decode_colormap_labels, read_image
+from csupl.utils import ColourDecoder, get_image_list, plot_overlaid, overlay_images, load_image, get_colour_decoder
 from csupl.generate_masks import merge_classes, generate_labels, get_config, write_image
 
 def parse_args():
@@ -23,9 +23,11 @@ def parse_args():
     parser.add_argument("-i", "--input", help="Directory to generate masks from", type=str, default=def_input)
     parser.add_argument("-o", "--output", help="Directory where label files should be output to. If none, will cycle through images and plot side by side", type=str, default=None)
     parser.add_argument("-c", "--config", help="Location of the config file. If not specified, will look for a .json in the input directory", default=None)
+    parser.add_argument("--colour", type=str, help="Which colour code to use. If none, will look for file colour_code.json in default config dir", default=None)
     parser.add_argument("--file-extension", help="Image file extension to read in, with dot. Defaults to .JPG", default=".JPG")
     parser.add_argument("--tolerance", type=float, help="Tolerance to be used for the kmeans algorithm nearest neighbor-distance!", default=0.5)
     parser.add_argument("-w", "--watershed", action="store_true", help="If set to true, will use watershed alorithm to pre-label sand class")
+    parser.add_argument("--overlay", action="store_true", help="Whether the mask written out will be an overlay or only the colour code")
     args = vars(parser.parse_args())
     return args
 
@@ -43,8 +45,12 @@ if __name__=="__main__":
     img_list = get_image_list(img_directory, in_fext)
     poly_dict = get_config(conf_f, img_directory)
     watershed = args["watershed"]
+    overlay = args["overlay"]
     if watershed:
         ws = Watershed(tolerance=tolerance)
+
+    colour_path = args["colour"]
+    colour_decoder = get_colour_decoder(colour_path)
 
     # Logging
     print("Reading from directory: {}\t{} files".format(
@@ -69,7 +75,7 @@ if __name__=="__main__":
         img_f = img_directory / (im_f + ".JPG")
         
         # pre-labelling
-        img = read_image(img_f)
+        img = load_image(img_f)
 
         if watershed:
             labels = ws(img)
@@ -80,10 +86,11 @@ if __name__=="__main__":
         poly_list = poly_dict[im_f]
         poly_idx = labels.max() + 1
         for poly in poly_list:
-            labels = generate_labels(labels, poly, poly_idx)
+            generate_labels(labels, poly, poly_idx)
 
-        mask = decode_colormap_labels(labels)
-        mask = overlay_images(img, mask, alpha=0.5)
+        mask = colour_decoder(labels)
+        if overlay:
+            mask = overlay_images(img, mask, alpha=0.5)
         if label_dir:
             try:
                 write_image(ldir, im_f, labels)

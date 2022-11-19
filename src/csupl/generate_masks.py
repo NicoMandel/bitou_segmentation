@@ -62,7 +62,7 @@ def generate_labels(label_img : np.ndarray, poly_coord : list, label_idx : int):
         uses OpenCV
     """
     cv2.fillPoly(label_img, pts=np.array([poly_coord], dtype=np.int32), color=int(label_idx))
-    return label_img
+    # return label_img
 
 
 def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, f_ext : str, whiteout : bool):
