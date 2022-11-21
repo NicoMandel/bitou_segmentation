@@ -87,7 +87,7 @@ def write_image(mask_dir : Path, im_fname : str, im_f : np.ndarray, f_ext : str 
     """
     mask_dir = to_Path(mask_dir)
     m_path = mask_dir / (im_fname + f_ext)
-    cv2.imwrite(str(m_path), cv2.cvtColor(im_f, cv2.COLOR_BGR2RGB))
+    cv2.imwrite(str(m_path), im_f)
 
 def merge_classes(labels : np.ndarray, keep_class : int) -> np.ndarray:
     labels[labels != keep_class] = 0

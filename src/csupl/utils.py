@@ -39,6 +39,12 @@ class ColourDecoder:
         for idx in range(0, labels.max() +1):
             out_img[labels == idx] = colour_code[idx]
         return out_img
+
+    def __getitem__(self, key : int) -> list:
+        return self.colour_code[key].tolist()
+
+    def __setitem__(self, key : int, value : np.ndarray):
+        raise NotImplementedError
         
     @classmethod
     def load_colours(cls, fpath):
