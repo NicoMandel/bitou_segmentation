@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import json
 import os.path
-
+import torch
 """
     Section on plotting images
 """
@@ -66,6 +66,23 @@ def get_colour_decoder(fpath : str = None) -> ColourDecoder:
     cd = ColourDecoder.load_colours(fpath)
     return cd
 
+
+class InverseNormalization(object):
+
+    def __init__(self, mean=(0.485, 0.456, 0.406), std=(0.229,0.224, 0.225)):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, image, target):
+        z = image * torch.tensor(self.std).view(3, 1, 1)
+        z = z + torch.tensor(self.mean).view(3,1,1)
+        return z, target
+    
+    def __repr__(self):
+        return type(self).__name__
+    
+    def getTransformParams(self):
+        return {"mean": self.mean, "std": self.std}
 
 """
     Functions for loading labels and images - to be used across all sources - for consistency
