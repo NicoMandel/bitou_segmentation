@@ -89,8 +89,9 @@ class Model(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         out = self._shared_step(x)
-        J = self.loss(out, y.float())  
-        # J = self.loss(out, y.long())
+        # out = out.sigmoid()
+        # J = self.loss(out, y.float())  
+        J = self.loss(out, y.long())
         self.log_dict({'loss/train': J}, prog_bar=True, logger=True, on_step=True)
         return {'loss': J}
     

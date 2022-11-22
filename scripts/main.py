@@ -55,7 +55,7 @@ def default_args():
     argdict["classes"] = 3
     argdict["batch"] = 6
     argdict["workers"] = argdict["batch"] if argdict["batch"] < 12 else 12
-    argdict["save"] = False
+    argdict["save"] = True
     argdict["dev_run"] = False
     argdict["model"] = "irrelevant"
     argdict["pretrained"] = "irrelevant"
@@ -104,8 +104,8 @@ if __name__=="__main__":
 
     # ! losses: https://smp.readthedocs.io/en/latest/losses.html
     # ! logits version may be wrong here!
-    loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
-    # loss = sgm.losses.JaccardLoss(loss_mode)
+    # loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
+    loss = sgm.losses.JaccardLoss(loss_mode)
 
     # Getting the actual model
     # model = Model(model_name, encoder_name, encoder_weights, in_channels, classes)
@@ -213,7 +213,7 @@ if __name__=="__main__":
     if export_model:
         model.freeze()
         export_fpath = os.path.join(export_dir, modelfname +".pt")
-        ds = BitouDataset(root_dir, transforms=test_aug, img_folder="orig", mask_folder="labels_multiclass", img_ext=".JPG", mask_ext=".png")
+        ds = BitouDataset(root_dir, transforms=test_aug, img_folder="bitou_test", mask_folder="labels_multiclass", img_ext=".JPG", mask_ext=".png")
         assert len(ds) > 0
         dl = DataLoader(ds)
         trainer.predict(model, dl)
