@@ -12,93 +12,10 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
 
-import cv2
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-from PIL import Image
-
-class InverseNormalizationAlternative(object):
-
-    def __init__(self, mean=(0.485, 0.456, 0.406), std=(0.229,0.224, 0.225)):
-        self.mean = mean
-        self.std = std
-
-    def __call__(self, image, target):
-        z = image * torch.tensor(self.std).view(3, 1, 1)
-        z = z + torch.tensor(self.mean).view(3,1,1)
-        return z, target
-    
-    def __repr__(self):
-        return type(self).__name__
-    
-    def getTransformParams(self):
-        return {"mean": self.mean, "std": self.std}
-
-colour_code = np.array([(220, 220, 220), (128, 0, 0), (0, 128, 0),  # class
-                        (192, 0, 0), (64, 128, 0), (192, 128, 0),   # background
-                        (70, 70, 70),      # Buildings
-                        (190, 153, 153),   # Fences
-                        (72, 0, 90),       # Other
-                        (220, 20, 60),     # Pedestrians
-                        (153, 153, 153),   # Poles
-                        (157, 234, 50),    # RoadLines
-                        (128, 64, 128),    # Roads
-                        (244, 35, 232),    # Sidewalks
-                        (107, 142, 35),    # Vegetation
-                        (0, 0, 255),      # Vehicles
-                        (102, 102, 156),  # Walls
-                        (220, 220, 0),
-                        (220, 0, 220),
-                        (0, 220, 220),
-                        (110, 110, 0),
-                        (0, 110, 110)
-                                        ])  # background
-
-
-def decode_colormap(labels, num_classes=2):
-        """
-            Function to decode the colormap. Receives a numpy array of the correct label
-        """
-        r = np.zeros_like(labels).astype(np.uint8)
-        g = np.zeros_like(labels).astype(np.uint8)
-        b = np.zeros_like(labels).astype(np.uint8)
-        for class_idx in range(0, num_classes):
-            idx = labels == class_idx
-            r[idx] = colour_code[class_idx, 0]
-            g[idx] = colour_code[class_idx, 1]
-            b[idx] = colour_code[class_idx, 2]
-        colour_map = np.stack([r, g, b], axis=2)
-        # colour_map = colour_map.transpose(2,0,1)
-        # colour_map = torch.tensor(colour_map)
-        # image = image.to("cpu").numpy().transpose(1, 2, 0)
-        return colour_map
-
-def alternative_decode_colormap(label, num_classes=2):
-    m = np.zeros_like(label)
-    for idx in range(0, num_classes):
-        m[label == idx] = colour_code[idx]
-    return m
-
-def load_image(path : str):
-    img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    return img
-
-def load_mask(path : str):
-    mask = cv2.imread(path, cv2.IMREAD_UNCHANGED)
-    mask = cv2.cvtColor(mask, cv2.COLOR_BGR2RGB)
-    mask = mask[...,0]
-    mask = mask[..., np.newaxis]
-    return mask
-
-def load_image_and_mask(img_dir : str, mask_dir : str, img_name : str) -> tuple:
-    img_fname = os.path.join(img_dir, img_name )
-    mask_fname = os.path.join(mask_dir, img_name)
-    
-    img = load_image(img_fname)
-    mask = load_mask(mask_fname)
-    return (img, mask)
+from csupl.utils import load_image, load_label, get_colour_decoder
 
 def run_deterministic_images(model : Model, transforms : A.Compose, img_list : list, img_dir : str, mask_dir : str, im_shape):
     """
@@ -114,7 +31,10 @@ def run_deterministic_images(model : Model, transforms : A.Compose, img_list : l
     model.eval()
     model.to(device)
     for i, img in tqdm(enumerate(img_list)):
-        im, mask = load_image_and_mask(img_dir, mask_dir, img)
+        im_f = os.path.join(img_dir, img + ".JPG")
+        im = load_image(im_f)
+        mask_f = os.path.join(mask_dir, img + ".png")
+        mask = load_label(mask_f)
         out = transforms(image = im, mask = mask)
         im_batch[i, ...] = out['image']
         m_batch[i, ...] = out['mask']
@@ -124,25 +44,26 @@ def run_deterministic_images(model : Model, transforms : A.Compose, img_list : l
     x = im_batch.to(device)
     with torch.no_grad():
         y_hat = model(x)
-    # y_hat = torch.argmax(y_hat, dim=1).detach().cpu().numpy()
-    y_hat = y_hat.sigmoid()
+    y_hat = torch.argmax(y_hat, dim=1).detach().cpu().numpy()
+    # y_hat = y_hat.sigmoid()
     return im_batch.detach().numpy(), y_hat, m_batch.detach().squeeze().numpy()
 
-def plot3x3(input, mask, output, _, fnames, num_classes =2):
+def plot3x3(input, mask, output, _, fnames, colour_decoder):
     fig, axs = plt.subplots(3,3)
+    mask = mask.astype(np.int)
     for i in range(3):
         axs[i,0].imshow(input[i, ...])
         axs[i,0].axis('off')
         axs[i,0].set_title(f"Original: {fnames[i]}")
 
         m = mask[i, ...]
-        m = decode_colormap(m, num_classes)
+        m = colour_decoder(m)
         axs[i,1].imshow(m)
         axs[i,1].axis('off')
         axs[i,1].set_title('Mask')
 
         out = output[i, ...]
-        out = decode_colormap(out, num_classes)
+        out = colour_decoder(out)
         axs[i,2].imshow(out)
         axs[i,2].axis('off')
         axs[i,2].set_title('Output')
@@ -150,29 +71,30 @@ def plot3x3(input, mask, output, _, fnames, num_classes =2):
     print("Test debug line")
 
 
-def plot3x4(input, mask, y_tr, y_untr, fnames, num_classes = 2):
+def plot3x4(input, mask, y_tr, y_untr, fnames, colour_decoder):
     fig, axs = plt.subplots(3,4)
+    mask = mask.astype(np.int)
     for i in range(3):
         axs[i,0].imshow(input[i, ...])
         axs[i,0].axis('off')
         axs[i,0].set_title(f"Original: {fnames[i]}")
 
         m = mask[i, ...]
-        m = decode_colormap(m, num_classes)
+        m = colour_decoder(m)
         axs[i,1].imshow(m)
         axs[i,1].axis('off')
         axs[i,1].set_title('Mask')
 
         untr = y_untr[i, ...]
-        # untr = decode_colormap(untr, num_classes)
-        untr = untr.squeeze().cpu().numpy()
+        untr = colour_decoder(untr)
+        # untr = untr.squeeze().cpu().numpy()
         axs[i,2].imshow(untr)
         axs[i,2].axis('off')
         axs[i,2].set_title('Untrained')
 
         tr = y_tr[i, ...]
-        # tr = decode_colormap(tr, num_classes)
-        tr = tr.squeeze().cpu().numpy()
+        tr = colour_decoder(tr)
+        # tr = tr.squeeze().cpu().numpy()
         axs[i,3].imshow(tr)
         axs[i,3].axis('off')
         axs[i,3].set_title('Trained')
@@ -180,7 +102,7 @@ def plot3x4(input, mask, y_tr, y_untr, fnames, num_classes = 2):
     print("Test Debug Line")
 
 
-def run_lightning_trainer_images(datadir, augmentations, model):
+def run_lightning_trainer_images(datadir, augmentations, model, colour_decoder):
 
     ds = BitouDataset(datadir, augmentations, img_folder="bitou_test", mask_folder="bitou_binary_masks")
     # get a dataloader of the dataset
@@ -209,12 +131,27 @@ def run_lightning_trainer_images(datadir, augmentations, model):
         fig, axs = plt.subplots(batch_size)
         for i in range(batch_size):
             lab = label_argm[i, ...]
-            dec = decode_colormap(lab)
+            dec = colour_decoder(lab)
             axs[i].imshow(dec)
             axs[i].axis('off')
         # decoded = decode_colormap(label_argm, num_classes=2)
         plt.show()
         print("Test Debug")
+
+def get_bitou_multiclass_case():
+    predict_files = [
+        "DJI_20220404135614_0001",
+        "DJI_20220404140510_0015",
+        "DJI_20220404140802_0022"
+    ]
+    model_f = "results/tmp/models/multiclass/FPNresnet34_trained-2022-11-22-19:1:23.pt"
+    model_f2 = "results/tmp/models/multiclass/FPNresnet34_untrained-2022-11-22-19:1:23.pt"
+    datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'data')
+    img_dir = os.path.join(datadir, 'bitou_test')
+    mask_dir = os.path.join(datadir, 'labels_multiclass')
+    num_classes = 3
+    plot_fn = plot3x4
+    return predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn
 
 def get_bitou_standard_case():
     predict_files = [
@@ -287,7 +224,7 @@ if __name__=="__main__":
     # fixing the seed
     pl.seed_everything(8)       # seed 8 shows one image
 
-    predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn = get_bitou_balance_case()
+    predict_files, model_f, model_f2, datadir, img_dir, mask_dir, num_classes, plot_fn = get_bitou_multiclass_case()
 
     model = Model.load_from_checkpoint(
         model_f, 
@@ -318,6 +255,7 @@ if __name__=="__main__":
     im_batch = np.moveaxis(im_batch, 1, -1)
     # y_hat = np.moveaxis(y_hat, 1, -1)
     # y = np.moveaxis(y, 1, -1)
-    plot_fn(im_batch, y, y_tr, y_untr, predict_files, num_classes)     
+    coldec = get_colour_decoder()
+    plot_fn(im_batch, y, y_tr, y_untr, predict_files, coldec)     
 
     print("Test Debug Line")
