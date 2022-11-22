@@ -15,23 +15,26 @@ import numpy as np
 
 import pytorch_lightning as pl
 
+from csupl.utils import load_image, load_label
+
 class BitouDataset(VisionDataset):
 
     def __init__(self, root: str,
             # num_classes: int,
             transforms: Optional[Callable] = None,
-                img_folder : str ="bitou_test", mask_folder: str ="bitou_test_masks", f_ext : str = ".JPG") -> None:
+                img_folder : str ="bitou_test", mask_folder: str ="bitou_test_masks", img_ext : str = ".JPG", mask_ext : str = ".png") -> None:
         # directories
         super().__init__(root, transforms)
         self.img_dir = Path(self.root) / img_folder
         self.mask_dir = Path(self.root) / mask_folder
         
         # lists
-        self.img_list = list([x.stem for x in self.img_dir.glob("*"+f_ext)])
+        self.img_list = list([x.stem for x in self.img_dir.glob("*"+img_ext)])
 
         # number of classes
         # self.num_classes = num_classes
-        self.f_ext = f_ext
+        self.img_ext = img_ext
+        self.mask_ext = mask_ext
 
     def __len__(self) -> int:
         return len(self.img_list)
@@ -40,17 +43,14 @@ class BitouDataset(VisionDataset):
         if torch.torch.is_tensor(idx):
             idx = idx.tolist()
         
-        fname = self.img_list[idx] + self.f_ext
-        img_name = self.img_dir / fname
-        mask_name = self.mask_dir / fname
+        fname = self.img_list[idx]
+        img_name = self.img_dir / (fname + self.img_ext)
+        mask_name = self.mask_dir / (fname + self.mask_ext)
 
-        img = cv2.imread(str(img_name), cv2.IMREAD_UNCHANGED)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = load_image(img_name)
 
-        mask = cv2.imread(str(mask_name), cv2.IMREAD_UNCHANGED)
-        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2RGB)
-        mask = mask[...,0]
-        mask = mask[..., np.newaxis]
+        mask = load_label(mask_name)
+        # mask = mask[..., np.newaxis]
 
         # ! Albumentations specific transform syntax!
         if self.transforms is not None:
@@ -110,13 +110,13 @@ class BitouDataModule(pl.LightningDataModule):
     # Dataloaders:
     def train_dataloader(self):
         dl = DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers,
-        # pin_memory=True
+        pin_memory=True
         )
         return dl
     
     def val_dataloader(self):
         dl = DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers,
-        # pin_memory=True
+        pin_memory=True
         )
         return dl
     

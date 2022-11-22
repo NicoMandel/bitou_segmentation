@@ -52,10 +52,10 @@ def parse_args():
 
 def default_args():
     argdict = {}
-    argdict["classes"] = 2
+    argdict["classes"] = 3
     argdict["batch"] = 6
     argdict["workers"] = argdict["batch"] if argdict["batch"] < 12 else 12
-    argdict["save"] = True
+    argdict["save"] = False
     argdict["dev_run"] = False
     argdict["model"] = "irrelevant"
     argdict["pretrained"] = "irrelevant"
@@ -65,6 +65,9 @@ def default_args():
     # height and width
     argdict["height"] = 512
     argdict["width"] = 512
+
+    argdict["img_ext"] = ".JPG"
+    argdict["mask_ext"] = ".png"
     return argdict
 
 if __name__=="__main__":
@@ -82,10 +85,10 @@ if __name__=="__main__":
     export_model = args["save"]
 
     # Dataset parameters
-    root_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..' , 'data', 'bitou_balance')
+    root_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..' , 'data') # 'bitou_test'
     now = datetime.now()
     tim = "{}:{}:{}".format(now.hour, now.minute, now.second)
-    export_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "results", "tmp", "models", "bitou")
+    export_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "results", "tmp", "models", "multiclass")
 
     # lightning - getting the model has to be done before loading the Data, because of the size dictated by the model
     model_name = "FPN"
@@ -173,8 +176,8 @@ if __name__=="__main__":
         # "Test",
         # num_classes,
         # test_transforms=test_aug,
-        img_folder="orig",
-        mask_folder="mask",
+        img_folder="bitou_test",
+        mask_folder="labels_multiclass",
         train_transforms=train_aug,
         batch_size=batch_size, 
         num_workers=num_workers
@@ -206,11 +209,11 @@ if __name__=="__main__":
         )
 
     # Exporting the untrained model
-    modelfname = "{}-{}-{}".format(model_name + encoder_name +"_untrained_balance", date.today(), tim)
+    modelfname = "{}-{}-{}".format(model_name + encoder_name +"_untrained", date.today(), tim)
     if export_model:
         model.freeze()
         export_fpath = os.path.join(export_dir, modelfname +".pt")
-        ds = BitouDataset(root_dir, transforms=test_aug, img_folder="orig", mask_folder="mask", f_ext=".JPG")
+        ds = BitouDataset(root_dir, transforms=test_aug, img_folder="orig", mask_folder="labels_multiclass", img_ext=".JPG", mask_ext=".png")
         assert len(ds) > 0
         dl = DataLoader(ds)
         trainer.predict(model, dl)
@@ -228,7 +231,7 @@ if __name__=="__main__":
 
     # exporting the model, importing it again and then running the test suite TODO> should be done automatically from lightning
     # Exporting the model
-    modelfname = "{}-{}-{}".format(model_name + encoder_name +"_trained_balance", date.today(), tim)
+    modelfname = "{}-{}-{}".format(model_name + encoder_name +"_trained", date.today(), tim)
     if export_model:
         model.freeze()
         export_fpath = os.path.join(export_dir, modelfname + ".pt")
