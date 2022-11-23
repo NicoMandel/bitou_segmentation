@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-from csupl.utils import load_image, load_label, get_colour_decoder
+from csupl.utils import load_image, load_label, get_colour_decoder, InverseNormalization
 
 def run_deterministic_images(model : Model, transforms : A.Compose, img_list : list, img_dir : str, mask_dir : str, im_shape):
     """
@@ -48,15 +48,18 @@ def run_deterministic_images(model : Model, transforms : A.Compose, img_list : l
     # y_hat = y_hat.sigmoid()
     return im_batch.detach().numpy(), y_hat, m_batch.detach().squeeze().numpy()
 
-def plot3x3(input, mask, output, _, fnames, colour_decoder):
+def plot3x3(input, mask, output, _, fnames, inv_norm ,colour_decoder):
     fig, axs = plt.subplots(3,3)
     mask = mask.astype(np.int)
     for i in range(3):
-        axs[i,0].imshow(input[i, ...])
+        m = mask[i, ...]
+        # in_img, m = inv_norm(input[i, ...], m)
+        inp = input[i, ...]
+
+        axs[i,0].imshow(inp)
         axs[i,0].axis('off')
         axs[i,0].set_title(f"Original: {fnames[i]}")
 
-        m = mask[i, ...]
         m = colour_decoder(m)
         axs[i,1].imshow(m)
         axs[i,1].axis('off')
@@ -71,15 +74,18 @@ def plot3x3(input, mask, output, _, fnames, colour_decoder):
     print("Test debug line")
 
 
-def plot3x4(input, mask, y_tr, y_untr, fnames, colour_decoder):
+def plot3x4(input, mask, y_tr, y_untr, fnames, inv_norm, colour_decoder):
     fig, axs = plt.subplots(3,4)
     mask = mask.astype(np.int)
     for i in range(3):
-        axs[i,0].imshow(input[i, ...])
+        m = mask[i, ...]
+        # inp, m = inv_norm(input[i, ...], m)
+        inp = input[i, ...]
+        axs[i,0].imshow(inp)
         axs[i,0].axis('off')
         axs[i,0].set_title(f"Original: {fnames[i]}")
 
-        m = mask[i, ...]
+        
         m = colour_decoder(m)
         axs[i,1].imshow(m)
         axs[i,1].axis('off')
@@ -256,6 +262,7 @@ if __name__=="__main__":
     # y_hat = np.moveaxis(y_hat, 1, -1)
     # y = np.moveaxis(y, 1, -1)
     coldec = get_colour_decoder()
-    plot_fn(im_batch, y, y_tr, y_untr, predict_files, coldec)     
+    inv_norm = InverseNormalization(mean = mean, std = std)
+    plot_fn(im_batch, y, y_tr, y_untr, predict_files, inv_norm, coldec)     
 
     print("Test Debug Line")

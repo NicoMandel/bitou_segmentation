@@ -37,7 +37,7 @@ class ColourDecoder:
         out_arr_shape = (labels.shape[:] + (3,)) 
         out_img = np.zeros(out_arr_shape, dtype=np.uint8)
         for idx in range(0, labels.max() +1):
-            out_img[labels == idx] = colour_code[idx]
+            out_img[labels == idx] = self.colour_code[idx]
         return out_img
 
     def __getitem__(self, key : int) -> list:
@@ -69,20 +69,33 @@ def get_colour_decoder(fpath : str = None) -> ColourDecoder:
 
 class InverseNormalization(object):
 
-    def __init__(self, mean=(0.485, 0.456, 0.406), std=(0.229,0.224, 0.225)):
+    def __init__(self, mean : tuple =(0.485, 0.456, 0.406), std : tuple=(0.229,0.224, 0.225)):
         self.mean = mean
         self.std = std
 
-    def __call__(self, image, target):
+    def __call__(self, image : torch.Tensor, target : torch.Tensor) -> tuple:
+        """
+            TODO: Ensure image axes consistency
+        """
+        image = InverseNormalization.__check_tensor()
         z = image * torch.tensor(self.std).view(3, 1, 1)
         z = z + torch.tensor(self.mean).view(3,1,1)
         return z, target
     
-    def __repr__(self):
+    def __repr__(self) -> str:
         return type(self).__name__
     
-    def getTransformParams(self):
+    def getTransformParams(self) -> dict:
         return {"mean": self.mean, "std": self.std}
+    
+    @staticmethod
+    def __check_tensor(tensor):
+        """
+            Function to check type conversion on a tensor
+        """
+        if isinstance(tensor, np.ndarray):
+            tensor = torch.tensor(tensor)
+        return tensor
 
 """
     Functions for loading labels and images - to be used across all sources - for consistency
@@ -105,57 +118,6 @@ def _validate_img(img : np.ndarray) -> bool:
 def _validate_label(label : np.ndarray) -> bool:
     assert label.shape == 2
     return True
-
-colour_code = np.array([
-                    # (0, 0, 0),      #black
-                    (0, 0, 128),        #blue
-                    (0, 128, 0),  # green
-                    (192, 0, 0),        # red
-                    (0, 128, 192),      # turqouise
-                    (192, 128, 0),   # brown
-        (192, 192, 192),      # Buildings
-        (190, 153, 153),   # Fences
-        (72, 0, 90),       # Other
-        (220, 20, 60),     # Pedestrians
-        (153, 153, 153),   # Poles
-        (157, 234, 50),    # RoadLines
-        (128, 64, 128),    # Roads
-        (244, 35, 232),    # Sidewalks
-        (107, 142, 35),    # Vegetation
-        (0, 0, 255),      # Vehicles
-        (102, 102, 156),  # Walls
-        (220, 220, 0),
-        (220, 220, 0),
-        (220, 220, 0),(220, 220, 0),(220, 220, 0)
-                        ])  # background
-
-def decode_colormap(mask, labels, num_classes=2):
-        """
-            Function to decode the colormap. Receives a numpy array of the correct label
-        """
-        m = np.copy(mask)
-        m = m.reshape((-1,3))
-        for idx in range(0, num_classes):
-            m[labels == idx] = colour_code[idx]
-        colour_map = m.reshape(mask.shape)
-        return colour_map
-
-def decode_colormap_labels(labels : np.ndarray) -> np.ndarray:
-    out_arr_shape = (labels.shape[:] + (3,)) 
-    out_img = np.zeros(out_arr_shape, dtype=np.uint8)
-    for idx in range(0, labels.max()):
-        out_img[labels == idx] = colour_code[idx]
-    return out_img
-
-def disable_cluster(img : np.array, cluster : int, labels, color : list = [255,255,255]) -> np.array:
-    """
-        Function to disable a cluster from visualisation and return the image
-    """
-    masked = np.copy(img)
-    masked = masked.reshape((-1,3))
-    masked[labels == cluster] = color     # turning the specified cluster white
-    masked = masked.reshape(img.shape)
-    return masked
 
 def overlay_images(img : np.ndarray, mask : np.ndarray, alpha : int = 0.7):
     """
