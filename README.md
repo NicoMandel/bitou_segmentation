@@ -3,11 +3,11 @@
 Project folder for the bitou bush segmentation project.
 This project is following tips and guidelines from the [Good Research Code Handbook](https://goodresearch.dev/setup.html).
 
-## Albumentations branch
-this branch uses the [albumentations](https://albumentations.ai/docs/getting_started/mask_augmentation/) package and self-configured tasks and masks
-models come from the [smp package](https://smp.readthedocs.io/en/latest/metrics.html)
-an example of binary image classification can be found [here](https://github.com/catalyst-team/catalyst/blob/v21.02rc0/examples/notebooks/segmentation-tutorial.ipynb)
+The main package that is used in this project is [Pytorch lightning flash](https://lightning-flash.readthedocs.io/en/latest/installation.html) and its associated package [lightning bolts](https://www.pytorchlightning.ai/bolts)
 
+possible segmentation models available from [qbvel](https://github.com/qubvel/segmentation_models.pytorch)
+consider background randomization - see Julian's code and [this article](https://journalofbigdata.springeropen.com/articles/10.1186/s40537-019-0197-0)
+or [this guy](https://journalofbigdata.springeropen.com/articles/10.1186/s40537-019-0197-0)
 
 ## Folder Structure
 ```
@@ -42,8 +42,7 @@ bitou_segmentation
 
 ## Installing src files in csupl
 run `pip install -e .` from base folder. Installs current directory with editable configuration. Can now be imported anywhere
-Further information on installs can be found in [this good blog](https://godatadriven.com/blog/a-practical-guide-to-using-setup-py/).
-Potential further moves could include moving to [setuptools](https://godatadriven.com/blog/a-practical-guide-to-setuptools-and-pyproject-toml/)
+
 alternative is defining a .ENV file for vscode
 
 ## Environment files
@@ -57,8 +56,7 @@ there are currently two environments available, both working with RTX GPUs (Cuda
 
 ### Testing
 #### Environment
-Running `pytest .` inside the `tests` directory will ensure the packages are configured correctly.
-ToDO: add functionality for passing arguments to pytest, see [here](https://stackoverflow.com/questions/40880259/how-to-pass-arguments-in-pytest-by-command-line)
+Running `pytest .` inside the `tests` directory will ensure the packages are configured correctly
 
 #### Flash functionality
 running `scripts/base_task.py` runs the [default Semantic Segmentation task](https://lightning-flash.readthedocs.io/en/latest/reference/semantic_segmentation.html)

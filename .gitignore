@@ -20,5 +20,5 @@ results/**
 # tmp base folder - for temporary files written to test some things
 **/tmp/
 
-# pip install egg files
-*.egg-info/
+# pip install folders
+**/*.egg-info/
