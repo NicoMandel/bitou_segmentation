@@ -6,11 +6,11 @@
 import torch
 import pytorch_lightning as pl
 import torchvision
-from utils import decode_colormap, image_overlay
+# from utils import decode_colormap, image_overlay
 from torchvision.transforms import functional as F
 from PIL import Image
-from transforms import InverseNormalization
-
+# from transforms import InverseNormalization
+from csupl.utils import ColourDecoder, get_colour_decoder, InverseNormalization
 
 class InputMonitor(pl.Callback):
     """
