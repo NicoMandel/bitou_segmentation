@@ -62,8 +62,6 @@ def generate_labels(label_img : np.ndarray, poly_coord : list, label_idx : int):
         uses OpenCV
     """
     cv2.fillPoly(label_img, pts=np.array([poly_coord], dtype=np.int32), color=int(label_idx))
-    # return label_img
-
 
 def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, f_ext : str, whiteout : bool):
     """
@@ -92,3 +90,18 @@ def write_image(mask_dir : Path, im_fname : str, im_f : np.ndarray, f_ext : str 
 def merge_classes(labels : np.ndarray, keep_class : int) -> np.ndarray:
     labels[labels != keep_class] = 0
     return labels
+
+def crop_image(img : np.ndarray, start_y : int, stop_y : int, start_x : int, stop_x : int) -> np.ndarray:
+    return img[start_y:stop_y, start_x:stop_x]
+
+def crop_from_polygon(img : np.ndarray, poly_list : list) -> np.ndarray:
+    xy_arr = np.asarray(poly_list)
+    x_max, y_max = xy_arr.max(axis=0)
+    x_min, y_min = xy_arr.min(axis=0)
+    crop = crop_image(img, y_min, y_max, x_min, x_max)
+    return crop
+
+def crop_pair_from_polygon(img : np.ndarray, mask : np.ndarray, poly_coords : list) -> tuple(np.ndarray, np.ndarray):
+    nimg = crop_from_polygon(img, poly_coords)
+    nmask = crop_from_polygon(mask, poly_coords)
+    return nimg, nmask

@@ -184,21 +184,6 @@ class km_algo:
             d = np.abs(self.centers[i,:].astype(np.int) - self.centers[j,:].astype(np.int))
             d_3[i,j] = d_3[j,i] = d
         return d_3.min(axis=0)
-        d1 = d_3.min(axis=0)
-        d2 = d_3.min(axis=1)
-        d3 = d_3.min(axis=2)
-
-
-        for k in range(0, self.K):
-            colvec = self.centers[k,:].astype(np.int)
-            pairs = list(combinations(range(0, self.K), 2))
-            dmat = np.ones((self.K, self.K, len(colvec))) * 255.
-            for i,j in pairs:
-                d = np.abs(colvec[i] - colvec[j])
-                dmat[i,j,:] = dmat[j,i,:] = d
-            md[:,k] = dmat.min(axis=0)
-        return md
-
 
 
     # Saving and loading functions

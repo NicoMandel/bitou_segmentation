@@ -50,89 +50,28 @@ def parse_args():
     args = parser.parse_args()
     return vars(args)
 
-def default_args():
-    argdict = {}
-    argdict["classes"] = 21
-    argdict["batch"] = 8
-    argdict["workers"] = argdict["batch"] if argdict["batch"] < 12 else 12
-    argdict["save"] = True
-    argdict["dev_run"] = False
-    argdict["model"] = "irrelevant"
-    argdict["pretrained"] = "irrelevant"
-    # argdict["limit"] = 1.0
-    argdict["epochs"] = 30
-
-    # height and width
-    argdict["height"] = 512
-    argdict["width"] = 512
-    return argdict
-
-if __name__=="__main__":
-
-    # args = parse_args()
-    args = default_args()
-
-    num_classes = args["classes"]
-
-    # Training parameters  - depending on the hardware
-    num_workers = args["workers"]
-    batch_size = args["batch"]
-
-    # For exporting
-    export_model = args["save"]
-
-    # Dataset parameters
-    root_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..' , 'data')
-    export_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "results", "tmp", "models", "carla")
+def get_model_name(model, mode="untrained") -> str:
+    """
+        Function to get a name to store the model
+    """
     now = datetime.now()
     tim = "{}:{}:{}".format(now.hour, now.minute, now.second)
-    
-    # lightning - getting the model has to be done before loading the Data, because of the size dictated by the model
-    model_name = "FPN"
-    encoder_name = "resnet34"
-    encoder_weights = "imagenet"
-    in_channels = 3     # RGB Data
-    if num_classes == 2:
-        classes = 1     # reset for binary case
-        loss_mode = sgm.losses.BINARY_MODE
-    else:
-        classes = num_classes
-        loss_mode = sgm.losses.MULTICLASS_MODE
+    out_str = f"{str(model)}_{mode}_{date.today()}-{tim}"
+    return out_str
 
-    # ! losses: https://smp.readthedocs.io/en/latest/losses.html
-    # ! logits version may be wrong here!
-    loss = sgm.losses.JaccardLoss(loss_mode) # consider replacing smooth factor with 0 or 1
+def get_model_export_path(directory, model, mode = "untrained", f_ext = ".pt"):
+    modelname = get_model_name(model, mode)
+    return os.path.join(directory, modelname + f_ext)
 
-    # Getting the actual model
-    # model = Model(model_name, encoder_name, encoder_weights, in_channels, classes)
-    
-
-    # Task parameters - depending on the training settings    
-    lr = 1.0e-3
-    weight_decay = 1.0e-4
-    pretrained = args["pretrained"]
-
-    model = Model(model_name, encoder_name, encoder_weights, in_channels, classes,      # model parameters
-                loss=loss, lr = lr, weight_decay=weight_decay                           # task parameters
-                )
-
-    # Transform probability
-    p = 0.3
-    # Pytorch transform parameters
-    preprocess_params = model.get_preprocessing_parameters()
-    mean = tuple(preprocess_params['mean'])
-    std = tuple(preprocess_params['std'])
-
-    height = args["height"]
-    width = args["width"]
-
-    train_aug = A.Compose([
+def get_training_transforms(height : int, width : int, mean : tuple, std : tuple, p : float=0.3) -> A.Compose:
+    tfs = A.Compose([
             # Spatial Transforms
-        A.OneOf([
-            # A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
-            A.RandomCrop(height, width, p=1),
-            # A.Resize(height, width, p=1)
-        ], p=1),
+        # A.OneOf([
+        #     A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
+        #     A.RandomCrop(height, width, p=1),
+        #     # A.Resize(height, width, p=1)
+        # ], p=p),
+        A.Resize(height, width, p=1),
         A.OneOf([
             A.VerticalFlip(p=p),
             A.Rotate(limit=179, p=p),
@@ -156,30 +95,115 @@ if __name__=="__main__":
         A.Normalize(mean=mean, std=std),
         ToTensorV2(transpose_mask=True)        # 
     ])
+    return tfs
 
+def get_test_transforms(height : int, width : int, mean : tuple, std : tuple) -> A.Compose:
     test_aug = A.Compose([
-        A.RandomCrop(height, width, p=1),
+        # A.RandomCrop(height, width, p=1),
         # A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
+        A.Resize(height, width, p=1),
         A.Normalize(mean=mean, std=std),
         ToTensorV2(transpose_mask=True)
     ])
+    return test_aug
+
+
+def default_args():
+    argdict = {}
+    argdict["classes"] = 3
+    argdict["batch"] = 6
+    argdict["workers"] = argdict["batch"] if argdict["batch"] < 12 else 12
+    argdict["save"] = True
+    argdict["dev_run"] = False
+    argdict["model"] = "irrelevant"
+    argdict["pretrained"] = "irrelevant"
+    # argdict["limit"] = 1.0
+    argdict["epochs"] = 30
+
+    # height and width
+    argdict["height"] = 512
+    argdict["width"] = 512
+
+    argdict["img_ext"] = ".JPG"
+    argdict["mask_ext"] = ".png"
+    return argdict
+
+if __name__=="__main__":
+
+    # args = parse_args()
+    args = default_args()
+
+    num_classes = args["classes"]
+
+    # Training parameters  - depending on the hardware
+    num_workers = args["workers"]
+    batch_size = args["batch"]
+
+    # For exporting
+    export_model = args["save"]
+
+    # Dataset parameters
+    root_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..' , 'data') # 'bitou_test'
+    export_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "results", "tmp", "models", "multiclass")
+
+    # lightning - getting the model has to be done before loading the Data, because of the size dictated by the model
+    model_name = "FPN"
+    encoder_name = "resnet34"
+    encoder_weights = "imagenet"
+    in_channels = 3     # RGB Data
+    if num_classes == 2:
+        classes = 1     # reset for binary case
+        loss_mode = sgm.losses.BINARY_MODE
+    else:
+        classes = num_classes
+        loss_mode = sgm.losses.MULTICLASS_MODE
+
+    # ! losses: https://smp.readthedocs.io/en/latest/losses.html
+    # ! logits version may be wrong here!
+    # loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
+    loss = sgm.losses.JaccardLoss(loss_mode)
+
+    # Getting the actual model
+    # model = Model(model_name, encoder_name, encoder_weights, in_channels, classes)
+    
+
+    # Task parameters - depending on the training settings    
+    lr = 1.0e-3
+    weight_decay = 1.0e-4
+    pretrained = args["pretrained"]
+
+    model = Model(model_name, encoder_name, encoder_weights, in_channels, classes,      # model parameters
+                loss=loss, lr = lr, weight_decay=weight_decay                           # task parameters
+                )   
+
+    # Pytorch transform parameters
+    preprocess_params = model.get_preprocessing_parameters()
+    mean = tuple(preprocess_params['mean'])
+    std = tuple(preprocess_params['std'])
+
+    height = args["height"]
+    width = args["width"]
+
+    # Transform probability
+    p = 0.3
+    train_aug = get_training_transforms(height, width, mean, std, p=p)
+    test_aug = get_test_transforms(height, width, mean, std)
 
     # lightning - updated way to load the data - with a datamodule. Much simpler
     datamodule = BitouDataModule(
         root_dir,
-        img_folder= "CameraRGB",
         # "Test",
         # num_classes,
         # test_transforms=test_aug,
-        mask_folder="CameraSeg",
-        f_ext = ".png",
+        img_folder="bitou_test",
+        mask_folder="labels_multiclass",
         train_transforms=train_aug,
         batch_size=batch_size, 
         num_workers=num_workers
     )
 
     # Logger
-    logdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
+    # logdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
     # tb_logger = pl_loggers.TensorBoardLogger(logdir, default_hp_metric=False, name="Albumentations-"+modelfname)
     # print("Logging to directory: {}".format(logdir))
 
@@ -199,38 +223,34 @@ if __name__=="__main__":
         fast_dev_run=args["dev_run"],
         # limit_train_batches=args["limit"],
         # limit_val_batches=args["limit"],
+        limit_predict_batches=1,
         # callbacks=[LogImages(10)]
-        limit_predict_batches=1
         )
 
-    modelfname = "{}-{}-{}".format(model_name + encoder_name + "_untrained", date.today(), tim)
-    # Saving the untrained model
+    # Exporting the untrained model
     if export_model:
         model.freeze()
-        
-        export_fpath = os.path.join(export_dir, modelfname + ".pt")
-        ds = BitouDataset(root=root_dir, transforms=test_aug, img_folder="CameraRGB", mask_folder="CameraSeg", f_ext=".png")
-        assert len(ds) > 0 
+        export_fpath = get_model_export_path(export_dir, model, "untrained")
+        ds = BitouDataset(root_dir, transforms=test_aug, img_folder="bitou_test", mask_folder="labels_multiclass", img_ext=".JPG", mask_ext=".png")
+        assert len(ds) > 0
         dl = DataLoader(ds)
         trainer.predict(model, dl)
         trainer.save_checkpoint(export_fpath)
-        print("Saved untrained model to: {}".format(export_fpath))
+        print(f"Saved Untrained model to {export_fpath}")
         model.unfreeze()
 
+    # actual training step    
+    # Freeze backbone
+    model.freeze_encoder()
     trainer.fit(model, datamodule=datamodule)
 
     # Testing
     # trainer.test(task, datamodule=datamodule)
 
+    # exporting the model, importing it again and then running the test suite TODO> should be done automatically from lightning
     # Exporting the model
-    modelfname = "{}-{}-{}".format(model_name + encoder_name + "_trained", date.today(), tim)
     if export_model:
         model.freeze()
-        # model.unfreeze()
-        
-        export_fpath = os.path.join(export_dir, modelfname + ".pt")
+        export_fpath = get_model_export_path(export_dir, model, mode="trained")
         trainer.save_checkpoint(export_fpath)
-        print("Saved trained model to: {}".format(export_fpath))
-        # onnx_export(model, modelfname, logdir, height=height, width=width)
-
-    print("Done with the execution, Hooray! Please see Tensorboard in directory {} for more information".format(logdir))
+        print("Saved model to: {}".format(export_fpath))

@@ -84,6 +84,7 @@ if __name__=="__main__":
             labels = np.zeros(img.shape[:-1], dtype=np.uint8)
         # polygon drawing
         poly_list = poly_dict[im_f]
+        # TODO: make this fixed
         poly_idx = labels.max() + 1
         for poly in poly_list:
             generate_labels(labels, poly, poly_idx)

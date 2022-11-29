@@ -131,7 +131,7 @@ class BitouDataModule(pl.LightningDataModule):
 
 # Adopted from the OG OxfordPetDataset
 class OxfordPetDataset(torch.utils.data.Dataset):
-    def __init__(self, root, mode="train", transform=None):
+    def __init__(self, root, mode="train", transform=None, perc=0.25):
 
         self.root = root
         self.mode = mode
@@ -140,8 +140,8 @@ class OxfordPetDataset(torch.utils.data.Dataset):
         self.images_directory = os.path.join(self.root, "orig")
         self.masks_directory = os.path.join(self.root, "mask")
 
-        perc = 0.25
-        self.filenames = self._read_split(perc)
+        self.perc = perc
+        self.filenames = self._read_split(self.perc)
 
     def __len__(self):
         return len(self.filenames)

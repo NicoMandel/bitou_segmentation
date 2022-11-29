@@ -119,6 +119,9 @@ class Model(pl.LightningModule):
         out = self._shared_step(x)
         return out
 
+    def __repr__(self):
+        return f"{self.encoder_name}-{self.encoder_weights}-{self.classes}"
+
     
 ##############################################
 # Secondary Model

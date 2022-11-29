@@ -17,7 +17,8 @@ import string
 from PIL import Image, ImageDraw
 from tqdm import tqdm
 import numpy as np
-
+from csupl.generate_masks import get_polygon_coordinates, generate_labels, get_config, crop_from_polygon
+from csupl.utils import get_image_list
 
 def parse_args():
     """
@@ -37,62 +38,7 @@ def parse_args():
     args = vars(parser.parse_args())
     return args
 
-def get_polygon_coordinates(json_dict : dict) -> dict:
-    """
-        Gets the xy coordinates of the specific image defined by img_fname from the json dict and returns them in the format required by 
-        PIL ImageDraw.Polygon : [(x, y), (x,y), ..., ...]
-    """
-    poly_dict = {}
-    for _, v in json_dict.items():
-        if len(v['regions']) > 1:
-            print(v['filename'])
-        if v['regions']:
-            xy_list = []
-            for reg in v['regions']:
-                x = reg['shape_attributes']['all_points_x']
-                y = reg['shape_attributes']['all_points_y']
-                xy = list(zip(x, y))
-                xy_list.append(xy)
-        else:
-            poly_dict[v['filename'].split('.')[0]] = []
-        
-        # if len(xy_list) > 1:
-        #     print(xy_list)
-        poly_dict[v['filename'].split('.')[0]] = xy_list
-    
-    return poly_dict
-
-def generate_mask_image(mask_img : Image.Image, polygon_coord : list, whiteout : bool = False) -> Image.Image:
-    """
-        Function to generate a single polygon for a single image and return the image
-    """
-    # Image modes from Pillow: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-modes
-    d = ImageDraw.Draw(mask_img)
-    d.polygon(polygon_coord, fill=(255, 255, 255) if whiteout else (1,0,0))
-    return mask_img
-
-
-def crop_image(poly_coord : list, orig_img : Image.Image, mask_im : Image.Image) -> tuple:
-    """
-        Function to crop the image around the polygon
-    """
-    xy_arr = np.asarray(poly_coord)
-    x_max, y_max = xy_arr.max(axis=0)
-    x_min, y_min = xy_arr.min(axis=0)
-    coords = (x_min, y_min, x_max, y_max)
-    crop_img = orig_img.crop(coords)
-    crop_mask = mask_im.crop(coords)
-    return crop_img, crop_mask
-
-
-def balance_image():
-    """
-        Function to balance out the image pixels
-        TODO
-    """
-    raise NotImplementedError
-
-def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, crop_dir : Path, f_ext : string, whiteout : bool):
+def crop_images(polygon_coord: dict, input_dir : Path, mask_dir : Path, crop_dir : Path, f_ext : string, whiteout : bool):
     """
         function to load the images and write the mask
     """
@@ -131,15 +77,8 @@ if __name__=="__main__":
     else:
         crop_dir = Path(crop_dir)
 
-    img_list = list([x.stem for x in img_directory.glob("*."+f_ext)])
-    if args["config"] is None:
-        config_file = next(img_directory.glob("*.json"))
-    else:
-        config_file = args["config"]
+    img_list = get_image_list(img_directory)
+    config_file = args["config"]
 
-    with open(config_file, "r") as json_f:
-        json_dict = json.load(json_f)
-
-    json_metadata = json_dict["_via_img_metadata"]
-    polygon_dict = get_polygon_coordinates(json_metadata)
-    write_masks(polygon_dict, img_directory, mask_directory, crop_dir, f_ext, whiteout)
+    polygon_dict = get_config(config_file, img_directory)
+    crop_images(polygon_dict, img_directory, mask_directory, crop_dir, f_ext, whiteout)
