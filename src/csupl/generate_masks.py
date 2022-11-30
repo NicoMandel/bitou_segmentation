@@ -59,7 +59,8 @@ def generate_mask_image(mask_img : Image.Image, polygon_coord : list, class_idx 
 def generate_labels(label_img : np.ndarray, poly_coord : list, label_idx : int):
     """
         Function to generate a polygon mask on a single-channel image
-        uses OpenCV
+        uses OpenCV.
+        Is destructive on the image
     """
     cv2.fillPoly(label_img, pts=np.array([poly_coord], dtype=np.int32), color=int(label_idx))
 
@@ -101,7 +102,7 @@ def crop_from_polygon(img : np.ndarray, poly_list : list) -> np.ndarray:
     crop = crop_image(img, y_min, y_max, x_min, x_max)
     return crop
 
-def crop_pair_from_polygon(img : np.ndarray, mask : np.ndarray, poly_coords : list) -> tuple(np.ndarray, np.ndarray):
+def crop_pair_from_polygon(img : np.ndarray, mask : np.ndarray, poly_coords : list) -> tuple[np.ndarray, np.ndarray]:
     nimg = crop_from_polygon(img, poly_coords)
     nmask = crop_from_polygon(mask, poly_coords)
     return nimg, nmask

@@ -13,7 +13,7 @@ import pickle
 
 from itertools import combinations
 
-from csupl.utils import decode_colormap, resize_img
+from csupl.utils import resize_img, get_colour_decoder, ColourDecoder
 
 
 def cluster_img(img : np.array, K : int = 4, attempts : int = 10, iterations : int = 100, epsilon : float = 0.2):
@@ -59,7 +59,7 @@ def cluster_img(img : np.array, K : int = 4, attempts : int = 10, iterations : i
 class km_algo:
 
     def __init__(self, K : int = 4, attempts : int = 10, iterations : int =100, epsilon : float = 0.2,
-                scale : int = None, hsv : bool = False, 
+                scale : int = None, hsv : bool = False, coldecpath = None,
                 # overlay : bool = False
                 ) -> None:
         self.km = KMeans(K, max_iter=iterations, tol=epsilon, random_state=42)
@@ -70,6 +70,8 @@ class km_algo:
         self.hsv = hsv
         self.scale = scale
         # self.overlay = overlay
+        # default colour decoder
+        self.coldec = get_colour_decoder(coldecpath)
 
     def fit(self, img : np.ndarray):
         """
@@ -131,8 +133,8 @@ class km_algo:
         """
         mask = self._postprocess_img(mask)
         if overlay:
-            #
-            mask = decode_colormap(mask, labels, self.K if classes is None else classes)
+            mask = self.coldec(labels)
+            # mask = decode_colormap(mask, labels, self.K if classes is None else classes)
         return mask
 
     def calculate_distance(self, img : np.ndarray, tol : float = 1.):

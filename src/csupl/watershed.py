@@ -29,8 +29,8 @@ class Watershed:
                 * sure classes should be labelled with a number
                 * unknown should be marked with 0 
         """
-        img = to_numpy(img)
-        markers = self.__preprocess(img)
+        nimg = to_numpy(img)
+        markers = self.__preprocess(nimg)
         out_img = cv2.watershed(img, markers.astype(np.int32))
         out_img = self.__postprocess(out_img)
         return out_img
