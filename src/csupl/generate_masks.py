@@ -106,3 +106,47 @@ def crop_pair_from_polygon(img : np.ndarray, mask : np.ndarray, poly_coords : li
     nimg = crop_from_polygon(img, poly_coords)
     nmask = crop_from_polygon(mask, poly_coords)
     return nimg, nmask
+
+
+############
+# Section on Balancing out pixel classes
+############
+def _is_between(lower, upper, testval) -> bool:
+    return min(lower, upper) < testval < max(lower, upper)
+
+def _dilate_by(coords : tuple, boundaries : tuple, px_ct : int = 1) -> tuple:
+    x_min, y_min, x_max, y_max = coords
+    x_min -= px_ct if x_min > 0 else 0
+    y_min -= px_ct if y_min > 0 else 0
+    x_max += px_ct if x_max < (boundaries[1] - 1) else (boundaries[1] - 1)
+    y_max += px_ct if y_max < (boundaries[0] - 1) else (boundaries[0] - 1)
+    return (x_min, y_min, x_max, y_max)
+
+def _get_ratio(crop : np.array, backgrd_idx : int = 0) -> float:
+    m_ct = np.count_nonzero(crop > backgrd_idx)
+    background_ct = np.count_nonzero(crop == backgrd_idx)
+    ratio = background_ct / (m_ct + background_ct)
+    return ratio
+
+def balance_image(mask_img : Image.Image, balance_ratio : float, coords : tuple, epsilon : float = 0.05) -> tuple:
+    """
+        Function to balance out the image pixels.
+        balance_ratio is the targeted amount of **Background** pixels
+        Note: only for binary case currently
+    """
+    m_arr = np.asarray(mask_img)[... ,0]      # only concered about red channel
+    boundaries = m_arr.shape
+    x_min, y_min, x_max, y_max = coords
+    init_crop = m_arr[y_min:y_max+1, x_min:x_max+1]
+    ratio = _get_ratio(init_crop, 0)
+    while not _is_between(balance_ratio-epsilon, balance_ratio+epsilon, ratio):   
+        # crop image around the coordinates
+        x_min, y_min, x_max, y_max = coords
+        crop_arr = m_arr[y_min:y_max+1,x_min:x_max+1]
+        
+        # get the pixel ratio
+        ratio = _get_ratio(crop_arr)
+        # tqdm.write(f"{ratio}")
+        # expand the pixel ratio
+        coords = _dilate_by(coords, boundaries)
+    return coords
