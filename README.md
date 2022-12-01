@@ -25,7 +25,7 @@ bitou_segmentation
 └─── config - where configuration files are sitting that define settings
 |       |   colour_code.json -  a file that defines the colours for classes by number. Used for mask decoding
 |       |   via_bitou_test1_220928.json - a config file created using VIA
-|       |   kmeans_K-3_scale-20_hsv_full.pkl - current classifier used for k_means prediction
+|       |   kmeans_K-3_scale-20_hsv_full.pkl - **gitignored** for file size reasons - current classifier used for k_means prediction
 |
 └─── data - where pytorchs dataloader expects data - mainly gitignored. Is normally a collection of multiple 
 |           folders with the same substructure. This can be defined in the dataloader. Important is the same name in the <masks>
@@ -75,10 +75,12 @@ bitou_segmentation
 ```
 bitou_segmentation
 |
+└─── config
+|       |   kmeans_K-3_scale-20_hsv_full.pkl - **gitignored** for file size reasons - current classifier used for k_means prediction
+|
 └─── .vscode - configuration and compilation settings for vscode
-|       | launch.json -  custom launch configurations
-|       |       
-|       └─── settings.json - custom settings
+|       |   launch.json -  custom launch configurations    
+|       |   settings.json - custom settings
 |
 └─── lightning_logs - checkpoint files created by lightning during training.
 |

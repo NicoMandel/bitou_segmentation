@@ -22,3 +22,6 @@ results/**
 
 # pip install folders
 **/*.egg-info/
+
+## have to gitignore large .pkl files in config
+config/*.pkl
