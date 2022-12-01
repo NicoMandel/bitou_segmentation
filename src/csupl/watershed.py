@@ -12,8 +12,7 @@ from csupl.utils import to_numpy
 
 class Watershed:
 
-    def __init__(self, tolerance : float = 1.0) -> None:
-        fpath = "results/kmeans/classifiers/kmeans_K-3_scale-20_hsv_full.pkl"
+    def __init__(self, tolerance : float = 1.0, fpath = "config/kmeans_K-3_scale-20_hsv_full.pkl") -> None:
         self.classif = km_algo.load_classifier(fpath)
         self.tolerance = tolerance
 
