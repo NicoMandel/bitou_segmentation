@@ -122,3 +122,9 @@ A model needs specificiations what kind of model it should be. Segmentation mode
 
 ## Running predictions with a model
 A model first needs to be trained, before prediction can happen. Best practice to store in `results` folder
+
+# Valuable Resources
+Jeremy Jordan's Blog has a lot of resources on managing machine learning projects
+* This blog on [defining problems correctly](https://www.jeremyjordan.me/ml-requirements/)
+* This blog on [organizing code correctly](https://www.jeremyjordan.me/ml-projects-guide/)
+* This blog on [Segmentation Metrics](https://www.jeremyjordan.me/evaluating-image-segmentation-models/)
