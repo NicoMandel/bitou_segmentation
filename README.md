@@ -43,13 +43,14 @@ bitou_segmentation
 └─── scripts - executable scripts that are intended to run programs. Mainly contain an argument parser and lots of includes from the src directory.
 |               can always be run with python <script_name>.py --help to see information
 |       |   generate_masks.py - file to create masks from a config file and a directory of base images. Needs output, otherwise will plot images
+|       |   randomize_backgrounds.py - file to randomize the backgrounds - is an offline augmentation, due to albumentations syntax
 |       |   train_kmeans.py - file to train a k-means classifier, which can be used for watershed pre-labelling
 |       |   predict_kmeans.py - file that will run the prediction from a specified k_means classifier on a specified image or directory
 |       |   k_means.sh - shell file to run multiple combinations for the train_kmeans.py version
 |       |   predict.py - file for running prediction on a few images and plotting a model - currently not executable with argument parsing
 |       |   train_binary_model.py - file for training a binary model. Is split from normal model because of setting differences
 |       |   train_model.py - file for training a multiclass model. Standard file to run for training
-|       |   rysny_dataset_*.sh - files for synchronising folders to remote connections. Have safeguards in them to protect overwriting
+|       |   rysnc_dataset_*.sh - files for synchronising folders to remote connections. Have safeguards in them to protect overwriting
             remote connections without authorisation 
 |
 └─── src - importable code. Should be installed using pip - see [below](###-Installing-src-files-in-csupl). Can be used by placing
@@ -128,3 +129,7 @@ Jeremy Jordan's Blog has a lot of resources on managing machine learning project
 * This blog on [defining problems correctly](https://www.jeremyjordan.me/ml-requirements/)
 * This blog on [organizing code correctly](https://www.jeremyjordan.me/ml-projects-guide/)
 * This blog on [Segmentation Metrics](https://www.jeremyjordan.me/evaluating-image-segmentation-models/)
+
+More information on metrics:
+* calculating the metrics - [blog explained](https://ilmonteux.github.io/2019/05/10/segmentation-metrics.html)
+* [StackExchange Answer](https://stats.stackexchange.com/questions/273537/f1-dice-score-vs-iou/276144#276144)

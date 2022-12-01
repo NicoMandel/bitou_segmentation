@@ -219,6 +219,33 @@ def resize_img(img : np.array, scale_perc : int = 50) -> np.array:
     resized = cv2.resize(img, dim, interpolation=cv2.INTER_NEAREST)
     return resized
 
+def replace_image_values(img, r_img, label, exchange_class) -> np.ndarray:
+    """
+        Function to replace the pixels in the img with pixels from r_img, where the label is exchange_class
+        # TODO: make this work with exchange class more than one. Either through *args or through a list, depending on argparse
+    """
+    # 1. make sure images are the same size
+    r_img_ref = __check_image_sizes(img, r_img)
+    
+    # 2. copy the img
+    out_img = np.copy(img)
+
+    # 3. replace it
+    out_img[label == exchange_class] = r_img_ref[label == exchange_class]
+
+    return out_img
+
+def __check_image_sizes(img_1: np.ndarray, img_2 : np.ndarray):
+    """
+        Resize the second to be the size of the first. Only if its bigger, otherwise raise assertion error
+    """
+    s_2 = img_2.shape[:-1]
+    s_1 = img_1.shape[:-1]
+    for i in range(len(s_2)):
+        assert s_2[i] >= s_1[i]
+    resized = cv2.resize(img_2, (s_1[1], s_1[0]))
+    return resized
+
 """
     Conversion and control section
 """

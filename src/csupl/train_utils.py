@@ -5,18 +5,19 @@
 
 import torch
 import pytorch_lightning as pl
+import numpy as np
 import torchvision
 # from utils import decode_colormap, image_overlay
 from torchvision.transforms import functional as F
 from PIL import Image
 # from transforms import InverseNormalization
-from csupl.utils import ColourDecoder, get_colour_decoder, InverseNormalization
+from csupl.utils import ColourDecoder, get_colour_decoder, InverseNormalization, overlay_images
 
 class InputMonitor(pl.Callback):
     """
         Example coming from a maintainer [here](https://medium.com/@adrian.waelchli/3-simple-tricks-that-will-change-the-way-you-debug-pytorch-5c940aa68b03) 
     
-        Is potentially invalid, see [here](https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html#automatic-logging)
+        ! Is potentially invalid, see [here](https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html#automatic-logging)
     """
 
 
@@ -35,6 +36,7 @@ class LogImages(pl.Callback):
         super(LogImages, self).__init__()
         self.log_freq = log_freq
         self.IN = InverseNormalization()
+        self.colour_decoder = get_colour_decoder()
 
     def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
         
@@ -78,10 +80,10 @@ class LogImages(pl.Callback):
         labels = torch.argmax(img_pred.squeeze(), dim=0).detach().cpu().numpy()
         truth_labels = img_truth.detach().cpu().numpy()
 
-        decoded_pred = decode_colormap(labels, 2)
-        decoded_truth = decode_colormap(truth_labels, 2)
+        decoded_pred = self.colour_decoder(labels)
+        decoded_truth = self.colour_decoder(truth_labels)
 
-        overlay = image_overlay(img_in, decoded_pred)
+        overlay = overlay_images(img_in, decoded_pred)
 
         grid = torchvision.utils.make_grid([img_in.cpu(), decoded_truth, overlay])
         # plot_triplet((img_in.cpu(), decoded_truth, decoded_pred))
