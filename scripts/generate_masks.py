@@ -81,7 +81,7 @@ if __name__=="__main__":
         "plotting" if label_dir is None else label_dir
     ))
     if crop: print("Cropping around Polygon")
-    print()
+
     if label_dir is not None:
         ldir = setup_dir(label_dir, "labels")
         print(f"Labels for loading in: {ldir}")
