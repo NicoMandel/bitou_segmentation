@@ -108,9 +108,9 @@ def crop_pair_from_polygon(img : np.ndarray, mask : np.ndarray, poly_coords : li
     return nimg, nmask
 
 
-############
-# Section on Balancing out pixel classes
-############
+################################################
+# Section on Balancing out pixel classes - currently unused
+################################################
 def _is_between(lower, upper, testval) -> bool:
     return min(lower, upper) < testval < max(lower, upper)
 

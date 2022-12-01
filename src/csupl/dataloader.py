@@ -10,7 +10,6 @@ from PIL import Image
 from torch.utils.data import random_split, DataLoader
 from typing import Any, Callable, Optional
 # For albumentations
-import cv2
 import numpy as np
 import os.path
 
@@ -51,9 +50,7 @@ class BitouDataset(VisionDataset):
         img = load_image(img_name)
 
         mask = load_label(mask_name)
-        # mask = mask[..., np.newaxis]
 
-        # ! Albumentations specific transform syntax!
         if self.transforms is not None:
             transformed = self.transforms(image=img, mask=mask)
             img = transformed["image"]

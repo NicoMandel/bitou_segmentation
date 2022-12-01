@@ -2,7 +2,6 @@
     Following [this blog](https://cierra-andaur.medium.com/using-k-means-clustering-for-image-segmentation-fe86c3b39bf4)
     using help from [OpenCV docs](https://docs.opencv.org/3.4/d1/d5c/tutorial_py_kmeans_opencv.html)
     and [here](https://www.thepythoncode.com/article/kmeans-for-image-segmentation-opencv-python)
-    TODO: run the clusters on ALL images at once - reshape
     ! k means is unsupervised, KNN is supervised
     All data imported rom csupl
 """
@@ -13,7 +12,7 @@ from os import mkdir
 from pathlib import Path
 from tqdm import tqdm
 from csupl.k_means import *
-from csupl.utils import read_image, plot_images, save_image, get_image_list
+from csupl.utils import read_image, plot_images, save_image, get_image_list, get_colour_decoder, ColourDecoder
 
 def parse_args():
     """
@@ -72,6 +71,7 @@ def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : 
     labels = labels.reshape(batch_arr.shape[:-1])
     print("Finished Clustering. Have a look at the images being written next (with coffee in hand)")
 
+    coldec = get_colour_decoder()
     # Split whether plotting is necessary or not
     if plot_idx:
         idx = plot_idx-1
@@ -85,7 +85,7 @@ def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : 
             if hsv: 
                 img = cv2.cvtColor(img.astype('uint8'), cv2.COLOR_HSV2BGR)
                 m = cv2.cvtColor(m, cv2.COLOR_HSV2BGR)
-            m = decode_colormap(m, label, K)
+            m = coldec(label)
         plot_images(img, m, img_name, K)
         print("Test line for debugging")
     else:
@@ -108,7 +108,7 @@ def run_full(img_list : str, img_dir : Path, scale : int, K : int, iterations : 
                     if hsv: 
                         img = cv2.cvtColor(img.astype('uint8'), cv2.COLOR_HSV2BGR)
                         m = cv2.cvtColor(m, cv2.COLOR_HSV2BGR)
-                    m = decode_colormap(m, label, K)
+                    m = coldec(label)
                 
                 outfig = os.path.join(outdir, img_name + ".jpg")
                 tqdm.write("Saving to: {}".format(outfig))

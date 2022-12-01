@@ -157,12 +157,8 @@ class km_algo:
             cvec = self.centers[i,:]
             darr = np.abs(inp - cvec)
             dtol_arr = (darr - tolvec)
-            # dtol_arr = dtol_arr[dtol_arr < 0.
-            # .sum(axis=1)
-            # dtol_arr = dtol_arr * -1.
             outp[(dtol_arr < 0.).sum(axis=1) == inp.shape[1]] = i+1 
-            # b_arr = np.isclose(inp, rvec, rtol=tol)    # todo: figure out rtol and atol
-            # outp[b_arr] = i+1
+
 
         outp = outp.flatten()
         # to make this equal to the predict function, it should output an array with the set colors already as the first part of the tuple

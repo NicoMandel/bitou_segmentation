@@ -33,16 +33,6 @@ def parse_args():
     args = vars(parser.parse_args())
     return args
 
-def plot_or_write(img : np.ndarray, mask: np.ndarray, labels: np.ndarray, fname, label_dir, ldir, mdir, overlay : bool):
-    
-    if label_dir:
-        try:
-            write_image(ldir, fname, labels)
-            write_image(mdir, fname, mask)
-        except OSError: raise
-    else:
-        plot_overlaid(mask, title=fname)
-
 def write_img_to_dir(dir, fname, img):
     try:
         write_image(dir, fname, img)
