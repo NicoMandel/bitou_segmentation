@@ -99,9 +99,9 @@ def get_training_transforms(height : int, width : int, mean : tuple, std : tuple
 
 def get_test_transforms(height : int, width : int, mean : tuple, std : tuple) -> A.Compose:
     test_aug = A.Compose([
-        # A.RandomCrop(height, width, p=1),
+        A.RandomCrop(height, width, p=1),
         # A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
-        A.Resize(height, width, p=1),
+        # A.Resize(height, width, p=1),
         A.Normalize(mean=mean, std=std),
         ToTensorV2(transpose_mask=True)
     ])
