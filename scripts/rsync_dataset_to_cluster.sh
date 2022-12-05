@@ -4,17 +4,17 @@
 # USAGE FUNCTION
 print_usage() {
     printf "\nThis bash script uses rsync to copy a dataset from your machine to
-    QCR's GPU Cluster Mercury PC. will only copy the contents of the <dataset>/images 
-    folder across.
+    QUTs HPC cluster. Requires the names of the subfolder for images and masks.
+    The data will land in /work/quteagles/data_bitou. Please ensure you have access
+    to the /quteagles workspace by requesting it from the HPC.
 
 Example Usage:
     ./rsync_dataset_to_cluster.sh  -d <dataset> -u <username> -n <dataset_name>
 
 Input Arguments
+    -u <username>       your QUT username for HPC access. 
     -d <dataset>        the dataset, in the ground-classification dataset format, to be copied across.
-    -u <username>       your QUT username.
     -n <dataset_name>   the unique name given to this dataset.
-    -N                  used for new datasets only. Only to be used by James
                             
 "
 }
@@ -25,12 +25,11 @@ dataset_path=''
 username=''
 dataset_name=''
 new_dataset=false
-while getopts 'Nd:u:n:' flag; do
+while getopts 'd:u:n:' flag; do
     case "${flag}" in
         d) dataset_path="${OPTARG}" ;;
         u) username="${OPTARG}" ;;
         n) dataset_name="${OPTARG}" ;;
-        N) new_dataset=true ;;
         *) print_usage
             exit -1 ;;
     esac
@@ -55,10 +54,10 @@ if [ -z "${dataset_name}" ]; then
 fi
 
 # Setup Computer and directory
-cluster_pc="${username}@venus.qut.edu.au"
-cluster_dir="/home/${username}/agkelpie/datasets/${dataset_name}"
+cluster_pc="${username}@lyra.qut.edu.au"
+cluster_dir="/work/quteagles/data_bitou"
 
-# See if directory exists on cluster maching - if not can do straight copy
+# See if directory exists on cluster machine - if not can do straight copy
 if ssh ${cluster_pc} '[ -d ${cluster_dir}]'; then
     # get images on cluster and local machines, use these to check if correct dataset name was entered
     local_images=("${dataset_path}/images/images"/*)
