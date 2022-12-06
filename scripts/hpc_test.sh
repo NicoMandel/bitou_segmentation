@@ -9,37 +9,32 @@ header_1="#!/bin/bash -l"
 header_2="#PBS -l walltime=${time_limit}"
 header_3="#PBS -l mem=${memory_limit}"
 # header_4 = "#PBS -l cputype=${cputype}"
+ncpus=4
 header_5="#PBS -l ngpus=1"
-header_6="#PBS -l ncpus=4"
+header_6="#PBS -l ncpus=${ncpus}"
 
 # Body for the hpc script
 # conda and directory
 body_1="conda activate csupl"
 body_2="cd /work/quteagles/bitou_segmentation"
 
-
 ## Actual python settings below
 # Model Settings
-classes=3		# number of classes in test set
-model_name="FPN"
-encoder_name="resnet34"
-encoder_weights="imagenet"
+model_file="results/model_filename.pt"
+height=512
+width=512
 
-# Training settings
-workers=4		# default = 4 * nGPUS
+# Dataloader settings
+workers=$ncpus	# default = 4 * nGPUS
 batch=16		# default batch size
-epochs=30
 
 # Dataset Settings
-data_dir="/work/quteagles/data_bitou/multiclass_1"
+test_dir="/work/quteagles/data_bitou/multiclass_1"
 
-# Output Settings
-output_dir = "results/"
-
-this_script_file="bitou_${model_name}_${encoder_name}.sh"
+this_script_file="bitou_test_${model_file}.sh"
 # HPC required header
 echo ${header_1} >> ${this_script_file}
-echo "#PBS -N bitou_segm-${m}" >> ${this_script_file}
+echo "#PBS -N bitou_test-${model_file}" >> ${this_script_file}
 echo ${header_2} >> ${this_script_file}
 echo ${header_3} >> ${this_script_file}
 echo ${header_5} >> ${this_script_file}
@@ -50,9 +45,10 @@ echo ${body_1} >> ${this_script_file}
 echo ${body_2} >> ${this_script_file}
 
 # Actual command to execute
-echo "python scripts/train_model.py -c ${classes} -m ${model_name} --encoder ${encoder_name} --weights ${weights} \
--w ${workers} -b ${batch} -e ${epochs} -s\
--i ${data_dir} -o ${output_dir}" >> ${this_script_file}
+echo "python scripts/train_model.py -m ${model_file}\
+-w ${width} -h ${height}\
+--workers ${workers} -b ${batch}\
+-i ${data_dir}" >> ${this_script_file}
 qsub ${this_script_file}
 
 #cleanup

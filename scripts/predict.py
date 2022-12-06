@@ -74,7 +74,6 @@ def plot3x3(input, mask, output, _, fnames, inv_norm ,colour_decoder):
     plt.show()
     print("Test debug line")
 
-
 def plot3x4(input, mask, y_tr, y_untr, fnames, inv_norm, colour_decoder):
     fig, axs = plt.subplots(3,4)
     mask = mask.astype(np.int)
@@ -107,7 +106,6 @@ def plot3x4(input, mask, y_tr, y_untr, fnames, inv_norm, colour_decoder):
         axs[i,3].set_title('Trained')
     plt.show()
     print("Test Debug Line")
-
 
 def run_lightning_trainer_images(datadir, augmentations, model, colour_decoder):
 
