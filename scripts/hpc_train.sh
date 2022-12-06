@@ -25,6 +25,9 @@ model_name="FPN"
 encoder_name="resnet34"
 encoder_weights="imagenet"
 
+height=512
+width=512
+
 # Training settings
 workers=4		# default = 4 * nGPUS
 batch=16		# default batch size
@@ -50,8 +53,9 @@ echo ${body_1} >> ${this_script_file}
 echo ${body_2} >> ${this_script_file}
 
 # Actual command to execute
-echo "python scripts/train_model.py -c ${classes} -m ${model_name} --encoder ${encoder_name} --weights ${weights} \
--w ${workers} -b ${batch} -e ${epochs} -s\
+echo "python scripts/train_model.py -c ${classes} -m ${model_name} --encoder ${encoder_name} --weights ${weights}\
+--width ${width} --height ${height}
+-workers ${workers} -b ${batch} -e ${epochs} -s\
 -i ${data_dir} -o ${output_dir}" >> ${this_script_file}
 qsub ${this_script_file}
 

@@ -41,17 +41,24 @@ def parse_args():
     parser.add_argument("-m", "--model", default=1, type=int, help="Which model to choose. 1 for Deeplab, 2 for Unet")
     parser.add_argument("--encoder", type=str, help="Encoder name to be used with decoder architecture. Default is resnet34", default="resnet34")
     parser.add_argument("--weights", type=str, help="Encoder Weight pretraining to be used. Default is imagenet", default="imagenet")
+
+    # Model size settings
+    parser.add_argument("-w", "--width", help="Width to be used for training", default=512, type=int)
+    parser.add_argument("-h", "--height", help="Height to be used during training", default=512, type=int)
     
     # Training settings
     parser.add_argument("-b", "--batch", type=int, default=None, help="batch size to be used. Should not exceed memory, depends on Network")
-    parser.add_argument("-w", "--workers", type=int, default=4, help="Number of workers to be used for dataloading. Default 4. Recommended: 4 * (num_gpus)")
-    parser.add_argument("-s", "--save", action="store_true", default=False, help="Whether the model should be exported. Default false.")
+    parser.add_argument("--workers", type=int, default=4, help="Number of workers to be used for dataloading. Default 4. Recommended: 4 * (num_gpus)")
     parser.add_argument("-d", "--dev-run", action="store_true", default=False, help="If true, a fast development run is done with 1 batch for train, val and test")
     parser.add_argument("-l", "--limit", default=1.0, type=float, help="\% the training and validation batches to be used. Default is 1.0")
     parser.add_argument("-e", "--epochs", default=5, type=int, help="Maximum epochs, iterations of training")
     
     # Dataset Settings
-    parser.add_argument("-i", "--input", help="Input Directory. Within this directory, will look for <images> and <masks> for training", type=str)    
+    parser.add_argument("-i", "--input", help="Input Directory. Within this directory, will look for <images> and <masks> for training", type=str)
+    parser.add_argument("--mask-ext", type=str, help="Mask file extension to be read in the directory. Defaults to .png", default=".png")
+    parser.add_argument("--image-ext", type=str, help="Image file extension to be read from the image directory. Defaults to .JPG", default=".JPG")
+    
+    parser.add_argument("-o", "--output", type=str, help="Output location for the model to be stored, default is None, will not be stored!", default=None)
     args = parser.parse_args()
     return vars(args)
 
@@ -102,17 +109,6 @@ def get_training_transforms(height : int, width : int, mean : tuple, std : tuple
     ])
     return tfs
 
-def get_test_transforms(height : int, width : int, mean : tuple, std : tuple) -> A.Compose:
-    test_aug = A.Compose([
-        A.RandomCrop(height, width, p=1),
-        # A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
-        # A.Resize(height, width, p=1),
-        A.Normalize(mean=mean, std=std),
-        ToTensorV2(transpose_mask=True)
-    ])
-    return test_aug
-
-
 def default_args():
     argdict = {}
     argdict["classes"] = 3
@@ -135,32 +131,15 @@ def default_args():
 
 if __name__=="__main__":
 
-    # args = parse_args()
-    args = default_args()
-
-    num_classes = args["classes"]
-
-    # Training parameters  - depending on the hardware
-    num_workers = args["workers"]
-    batch_size = args["batch"]
-
-    # For exporting
-    export_model = args["save"]
-
-    # Dataset parameters
-    root_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..' , 'data') # 'bitou_test'
-    export_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "results", "tmp", "models", "multiclass")
+    args = parse_args()
 
     # lightning - getting the model has to be done before loading the Data, because of the size dictated by the model
-    model_name = "FPN"
-    encoder_name = "resnet34"
-    encoder_weights = "imagenet"
     in_channels = 3     # RGB Data
-    if num_classes == 2:
+    if args["classes"] == 2:
         classes = 1     # reset for binary case
         loss_mode = sgm.losses.BINARY_MODE
     else:
-        classes = num_classes
+        classes = args["classes"]
         loss_mode = sgm.losses.MULTICLASS_MODE
 
     # ! losses: https://smp.readthedocs.io/en/latest/losses.html
@@ -168,16 +147,10 @@ if __name__=="__main__":
     # loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
     loss = sgm.losses.JaccardLoss(loss_mode)
 
-    # Getting the actual model
-    # model = Model(model_name, encoder_name, encoder_weights, in_channels, classes)
-    
-
     # Task parameters - depending on the training settings    
     lr = 1.0e-3
     weight_decay = 1.0e-4
-    pretrained = args["pretrained"]
-
-    model = Model(model_name, encoder_name, encoder_weights, in_channels, classes,      # model parameters
+    model = Model(args["model"], args["encoder"], args["weights"], in_channels, classes,      # model parameters
                 loss=loss, lr = lr, weight_decay=weight_decay                           # task parameters
                 )   
 
@@ -186,35 +159,27 @@ if __name__=="__main__":
     mean = tuple(preprocess_params['mean'])
     std = tuple(preprocess_params['std'])
 
-    height = args["height"]
-    width = args["width"]
-
     # Transform probability
     p = 0.3
-    train_aug = get_training_transforms(height, width, mean, std, p=p)
-    test_aug = get_test_transforms(height, width, mean, std)
+    train_aug = get_training_transforms(args["height"], args["width"], mean, std, p=p)
 
     # lightning - updated way to load the data - with a datamodule. Much simpler
     datamodule = BitouDataModule(
-        root_dir,
+        args["input"],
         # "Test",
         # num_classes,
         # test_transforms=test_aug,
-        img_folder="bitou_test",
-        mask_folder="labels_multiclass",
+        img_folder="images",
+        mask_folder="masks",
         train_transforms=train_aug,
-        batch_size=batch_size, 
-        num_workers=num_workers
+        batch_size=args["batch_size"], 
+        num_workers=args["workers"]
     )
 
     # Logger
     # logdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
     # tb_logger = pl_loggers.TensorBoardLogger(logdir, default_hp_metric=False, name="Albumentations-"+modelfname)
     # print("Logging to directory: {}".format(logdir))
-
-    # lightning - task
-    # task = SegmentationTask(model, loss, lr=lr, weight_decay=weight_decay, num_classes=classes)
-
 
     # Training
     # Alternative to limiting the training batches: https://pytorch-lightning.readthedocs.io/en/1.2.10/common/trainer.html#limit-train-batches
@@ -232,30 +197,13 @@ if __name__=="__main__":
         # callbacks=[LogImages(10)]
         )
 
-    # Exporting the untrained model
-    if export_model:
-        model.freeze()
-        export_fpath = get_model_export_path(export_dir, model, "untrained")
-        ds = BitouDataset(root_dir, transforms=test_aug, img_folder="bitou_test", mask_folder="labels_multiclass", img_ext=".JPG", mask_ext=".png")
-        assert len(ds) > 0
-        dl = DataLoader(ds)
-        trainer.predict(model, dl)
-        trainer.save_checkpoint(export_fpath)
-        print(f"Saved Untrained model to {export_fpath}")
-        model.unfreeze()
-
-    # actual training step    
-    # Freeze backbone
+    # actual training step
     model.freeze_encoder()
     trainer.fit(model, datamodule=datamodule)
 
-    # Testing
-    # trainer.test(task, datamodule=datamodule)
-
-    # exporting the model, importing it again and then running the test suite TODO> should be done automatically from lightning
     # Exporting the model
-    if export_model:
+    if args["output"] is not None:
         model.freeze()
-        export_fpath = get_model_export_path(export_dir, model, mode="trained")
+        export_fpath = get_model_export_path(args["output"], model, mode="trained")
         trainer.save_checkpoint(export_fpath)
         print("Saved model to: {}".format(export_fpath))

@@ -62,9 +62,10 @@ class BitouDataModule(pl.LightningDataModule):
 
     def __init__(self, root : str,
                 # test_dir : str,
-                num_workers : int = 1, batch_size : int =4, val_percentage : float = 0.25,
+                num_workers : int = 1, batch_size : int = 4, val_percentage : float = 0.25,
                 img_folder : str = "bitou_test", mask_folder : str = "bitou_test_masks",
                 train_transforms: Optional[Callable] = None,
+                img_ext : str = ".JPG", mask_ext : str = ".png"
                 # test_transforms: Optional[Callable] = None
                 ) -> None:
         super().__init__()
@@ -84,6 +85,10 @@ class BitouDataModule(pl.LightningDataModule):
         self.train_transforms = train_transforms
         # self.test_transforms = test_transforms
 
+        # File extensions
+        self.img_ext = img_ext
+        self.mask_ext = mask_ext
+
     # TODO: change this from assigning states (self.x) because it will only be run on one process - use setup.
     # see [here](https://pytorch-lightning.readthedocs.io/en/latest/data/datamodule.html#prepare-data)
     def prepare_data(self):
@@ -91,7 +96,8 @@ class BitouDataModule(pl.LightningDataModule):
                 Same as the SegDataModule loader, but this one uses albumentations
             """
 
-            self.default_dataset = BitouDataset(self.root_dir, self.train_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder)
+            self.default_dataset = BitouDataset(self.root_dir, self.train_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder,
+                                                img_ext=self.img_ext, mask_ext=self.mask_ext)
             
             # Splitting the dataset
             dataset_len = len(self.default_dataset)
