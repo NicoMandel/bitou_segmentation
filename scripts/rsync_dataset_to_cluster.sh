@@ -18,7 +18,7 @@ Input Arguments
     -u <username>       your QUT username for HPC access
     -m <masks>          the masks folder
     -i <input>          the input folder of raw images
-    -n <name>           the dataset name - which will be the name of the subfolder
+    -n <name>           the dataset name - which is the name of the subfolder
     -N                  flag for new dataset creation
 "
 }

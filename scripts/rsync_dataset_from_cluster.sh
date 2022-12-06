@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# ! not functioning yet
 
 # USAGE FUNCTION
 print_usage() {
