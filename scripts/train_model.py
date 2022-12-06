@@ -35,7 +35,7 @@ from albumentations.pytorch import ToTensorV2
 # from pytorch_lightning import loggers as pl_loggers
 
 def parse_args():
-    parser = ArgumentParser(description="Training and Testing Loop for Semantic Segmentation model")
+    parser = ArgumentParser(description="Training Loop for Semantic Segmentation model")
     # Model settings
     parser.add_argument("-c", "--classes", default=1, type=int, help="Number of classes in the dataset (without background!). Default is 1")
     parser.add_argument("-m", "--model", default=1, type=int, help="Which model to choose. 1 for Deeplab, 2 for Unet")
@@ -62,17 +62,17 @@ def parse_args():
     args = parser.parse_args()
     return vars(args)
 
-def get_model_name(model, mode="untrained") -> str:
+def get_model_name(model) -> str:
     """
         Function to get a name to store the model
     """
     now = datetime.now()
     tim = "{}:{}:{}".format(now.hour, now.minute, now.second)
-    out_str = f"{str(model)}_{mode}_{date.today()}-{tim}"
+    out_str = f"{str(model)}_{date.today()}-{tim}"
     return out_str
 
-def get_model_export_path(directory, model, mode = "untrained", f_ext = ".pt"):
-    modelname = get_model_name(model, mode)
+def get_model_export_path(directory, model, f_ext = ".pt"):
+    modelname = get_model_name(model)
     return os.path.join(directory, modelname + f_ext)
 
 def get_training_transforms(height : int, width : int, mean : tuple, std : tuple, p : float=0.3) -> A.Compose:

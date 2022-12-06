@@ -42,7 +42,7 @@ output_dir = "results/"
 this_script_file="bitou_${model_name}_${encoder_name}.sh"
 # HPC required header
 echo ${header_1} >> ${this_script_file}
-echo "#PBS -N bitou_segm-${m}" >> ${this_script_file}
+echo "#PBS -N bitou_segm-${model_name}" >> ${this_script_file}
 echo ${header_2} >> ${this_script_file}
 echo ${header_3} >> ${this_script_file}
 echo ${header_5} >> ${this_script_file}
