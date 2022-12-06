@@ -34,19 +34,24 @@ from albumentations.pytorch import ToTensorV2
 # Logging
 # from pytorch_lightning import loggers as pl_loggers
 
-
 def parse_args():
     parser = ArgumentParser(description="Training and Testing Loop for Semantic Segmentation model")
-    
+    # Model settings
     parser.add_argument("-c", "--classes", default=1, type=int, help="Number of classes in the dataset (without background!). Default is 1")
+    parser.add_argument("-m", "--model", default=1, type=int, help="Which model to choose. 1 for Deeplab, 2 for Unet")
+    parser.add_argument("--encoder", type=str, help="Encoder name to be used with decoder architecture. Default is resnet34", default="resnet34")
+    parser.add_argument("--weights", type=str, help="Encoder Weight pretraining to be used. Default is imagenet", default="imagenet")
+    
+    # Training settings
     parser.add_argument("-b", "--batch", type=int, default=None, help="batch size to be used. Should not exceed memory, depends on Network")
     parser.add_argument("-w", "--workers", type=int, default=4, help="Number of workers to be used for dataloading. Default 4. Recommended: 4 * (num_gpus)")
     parser.add_argument("-s", "--save", action="store_true", default=False, help="Whether the model should be exported. Default false.")
     parser.add_argument("-d", "--dev-run", action="store_true", default=False, help="If true, a fast development run is done with 1 batch for train, val and test")
-    parser.add_argument("-m", "--model", default=1, type=int, help="Which model to choose. 1 for Deeplab, 2 for Unet")
-    parser.add_argument("-p", "--pretrained", default=True, action="store_false", help="If set, model will NOT be pretrained. Note: only influences Deeplab")
     parser.add_argument("-l", "--limit", default=1.0, type=float, help="\% the training and validation batches to be used. Default is 1.0")
     parser.add_argument("-e", "--epochs", default=5, type=int, help="Maximum epochs, iterations of training")
+    
+    # Dataset Settings
+    parser.add_argument("-i", "--input", help="Input Directory. Within this directory, will look for <images> and <masks> for training", type=str)    
     args = parser.parse_args()
     return vars(args)
 
