@@ -42,6 +42,7 @@ while getopts 'u:m:i:n:N' flag; do
     esac
 done
 
+# Checks on Syntax
 if [ -z "${image_path}" ]; then
     echo "The script requires an input image folder."
     print_usage
@@ -69,10 +70,9 @@ fi
 # Setup Computer and directory
 cluster_pc="${username}@lyra.qut.edu.au"
 cluster_dir="/work/quteagles/data_bitou/${dataset_name}"
+# Setup directories
 cluster_mask_dir="/work/quteagles/data_bitou/${dataset_name}/masks"
 cluster_img_dir="/work/quteagles/data_bitou/${dataset_name}/images"
-cluster_images=($(ssh ${cluster_pc} 'ls '${cluster_dir}'/images/*'))
-cluster_masks=($(ssh ${cluster_pc} 'ls '${cluster_dir}'/masks/*'))
 
 check_images() {
     local local_images=("${image_path}/*")
@@ -82,10 +82,13 @@ check_images() {
     local cluster_img="$(basename -- ${cluster_images[0]})"
     local local_mask="$(basename -- ${local_masks[0]})"
 
+    local cluster_images=($(ssh -q ${cluster_pc} 'ls '${cluster_dir}'/images'/*))
+    local cluster_masks=($(ssh -q ${cluster_pc} 'ls '${cluster_dir}'/masks'/*))
+
     # check if local image name and mask image name are the same
     if [ ${local_img} != ${local_mask} ] ; then
         echo "Images and Masks do not have the same names."
-        echo "Image 1 name: ${local_img}\tMask 1 name: ${cluster_img}"
+        echo "Image 1 name: ${local_img}    Mask 1 name: ${cluster_img}"
         exit -1
     else
         echo "Images and Masks have same name. Continuing"
@@ -94,7 +97,7 @@ check_images() {
     # check if local images and cluster images are the same
     if [ ${local_img} != ${cluster_img} ] ; then
         echo "Local dataset ${image_path} and cluster dataset ${cluster_dir} are not the same."
-        echo "Local Image 1 name: ${local_img}\tCluster Image 1 name: ${cluster_img}"
+        echo "Local Image 1 name: ${local_img}      Cluster Image 1 name: ${cluster_img}"
         exit -1
     else
         echo "Local Image Directory and Cluster Image Directory have same first file. Continuing."
@@ -102,18 +105,23 @@ check_images() {
 }
 
 # See if directory exists on cluster machine - if not can do straight copy
-if ssh ${cluster_pc} '[ -d ${cluster_dir}]'; then
+if ssh -q ${cluster_pc} "[ -d ${cluster_dir} ]"; then
+    echo "Directory ${cluster_dir} exists. Checking image similarity"
     check_images
 elif [ "${new_dataset}" = false ]; then # dataset doesn't exist, only run rsync command if -N flag is set
     echo "The ${dataset_name} does not exist on the cluster. If attempting to copy a new dataset make sure the -N flag is set."
     exit -1
+elif [ "${new_dataset}" = true ]; then
+    echo "Directory ${cluster_dir} does not exist. Creating"
+    ssh -q ${cluster_pc} "mkdir -p ${cluster_dir}"
+    echo "Created directory ${cluster_dir} on HPC"
 fi
 
 # Create rsync command
-command_imgs="rsync -azP ${image_path}/ ${cluster_pc}:${cluster_img_dir}"
+command_imgs="rsync -azP --no-motd ${image_path}/ ${cluster_pc}:${cluster_img_dir}"
 echo "Syncing Images with Command: ${command_imgs}"
 eval ${command_imgs}
 
-command_masks="rsync -azP ${mask_path}/ ${cluster_pc}:${cluster_mask_dir}"
-echo "Syncing Images with Command: ${command_masks}"
+command_masks="rsync -azP --no-motd ${mask_path}/ ${cluster_pc}:${cluster_mask_dir}"
+echo "Syncing Masks with Command: ${command_masks}"
 eval ${command_masks}
