@@ -28,10 +28,10 @@ from albumentations.pytorch import ToTensorV2
 def parse_args():
     parser = ArgumentParser(description="Testing Loop for Semantic Segmentation model")
     # Model settings
-    parser.add_argument("-m", "--model", default=1, type=int, help="Which model to choose. 1 for Deeplab, 2 for Unet")
+    parser.add_argument("-m", "--model", type=str, help="Which model to choose. Specify path")
     # Model size settings
-    parser.add_argument("-w", "--width", help="Width to be used for training", default=512, type=int)
-    parser.add_argument("-h", "--height", help="Height to be used during training", default=512, type=int)
+    parser.add_argument("-w", "--width", help="Width to be used for image preprocessing", default=512, type=int)
+    parser.add_argument("-h", "--height", help="Height to be used for image preprocessing", default=512, type=int)
     
     # Dataloader settings
     parser.add_argument("-b", "--batch", type=int, default=None, help="batch size to be used. Should not exceed memory, depends on Network")

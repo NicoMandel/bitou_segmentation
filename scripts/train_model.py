@@ -38,23 +38,24 @@ def parse_args():
     parser = ArgumentParser(description="Training Loop for Semantic Segmentation model")
     # Model settings
     parser.add_argument("-c", "--classes", default=1, type=int, help="Number of classes in the dataset (without background!). Default is 1")
-    parser.add_argument("-m", "--model", default=1, type=int, help="Which model to choose. 1 for Deeplab, 2 for Unet")
+    parser.add_argument("-m", "--model", type=str, help="Which model to choose. Uses segmentation models pytorch")
     parser.add_argument("--encoder", type=str, help="Encoder name to be used with decoder architecture. Default is resnet34", default="resnet34")
     parser.add_argument("--weights", type=str, help="Encoder Weight pretraining to be used. Default is imagenet", default="imagenet")
 
     # Model size settings
-    parser.add_argument("-w", "--width", help="Width to be used for training", default=512, type=int)
-    parser.add_argument("-h", "--height", help="Height to be used during training", default=512, type=int)
+    parser.add_argument("--width", help="Width to be used for training", default=512, type=int)
+    parser.add_argument("--height", help="Height to be used during training", default=512, type=int)
     
     # Training settings
-    parser.add_argument("-b", "--batch", type=int, default=None, help="batch size to be used. Should not exceed memory, depends on Network")
+    parser.add_argument("-b", "--batch", type=int, default=12, help="batch size to be used. Should not exceed memory, depends on Network")
     parser.add_argument("--workers", type=int, default=4, help="Number of workers to be used for dataloading. Default 4. Recommended: 4 * (num_gpus)")
     parser.add_argument("-d", "--dev-run", action="store_true", default=False, help="If true, a fast development run is done with 1 batch for train, val and test")
-    parser.add_argument("-l", "--limit", default=1.0, type=float, help="\% the training and validation batches to be used. Default is 1.0")
-    parser.add_argument("-e", "--epochs", default=5, type=int, help="Maximum epochs, iterations of training")
-    
+    parser.add_argument("-l", "--limit", default=1.0, type=float, help="%% the training and validation batches to be used. Default is 1.0")
+    parser.add_argument("-e", "--epochs", default=25, type=int, help="Maximum epochs, iterations of training. Default is 25")
+    parser.add_argument("--val", type=float, help="Validation Percentage of the training dataset.", default=0.25)
+
     # Dataset Settings
-    parser.add_argument("-i", "--input", help="Input Directory. Within this directory, will look for <images> and <masks> for training", type=str)
+    parser.add_argument("-i", "--input", help="Input Directory. Within this directory, will look for <images> and <masks> for training", type=str, required=True)
     parser.add_argument("--mask-ext", type=str, help="Mask file extension to be read in the directory. Defaults to .png", default=".png")
     parser.add_argument("--image-ext", type=str, help="Image file extension to be read from the image directory. Defaults to .JPG", default=".JPG")
     
@@ -151,7 +152,7 @@ if __name__=="__main__":
     lr = 1.0e-3
     weight_decay = 1.0e-4
     model = Model(args["model"], args["encoder"], args["weights"], in_channels, classes,      # model parameters
-                loss=loss, lr = lr, weight_decay=weight_decay                           # task parameters
+                loss=loss, lr = lr, weight_decay = weight_decay                           # task parameters
                 )   
 
     # Pytorch transform parameters
@@ -172,8 +173,9 @@ if __name__=="__main__":
         img_folder="images",
         mask_folder="masks",
         train_transforms=train_aug,
-        batch_size=args["batch_size"], 
-        num_workers=args["workers"]
+        batch_size=args["batch"], 
+        num_workers=args["workers"],
+        val_percentage=args["val"]
     )
 
     # Logger
@@ -193,7 +195,7 @@ if __name__=="__main__":
         fast_dev_run=args["dev_run"],
         # limit_train_batches=args["limit"],
         # limit_val_batches=args["limit"],
-        limit_predict_batches=1,
+        # limit_predict_batches=1,
         # callbacks=[LogImages(10)]
         )
 
@@ -204,6 +206,6 @@ if __name__=="__main__":
     # Exporting the model
     if args["output"] is not None:
         model.freeze()
-        export_fpath = get_model_export_path(args["output"], model, mode="trained")
+        export_fpath = get_model_export_path(args["output"], model)
         trainer.save_checkpoint(export_fpath)
         print("Saved model to: {}".format(export_fpath))

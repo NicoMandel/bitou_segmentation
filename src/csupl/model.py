@@ -99,7 +99,8 @@ class Model(pl.LightningModule):
         x, y = batch
         pred = self._shared_step(x)
         # Accuracy
-        acc = self.accuracy(pred, y)    
+        pred_cl = self._get_class(pred)
+        acc = self.accuracy(pred_cl, y)    
 
         self.log_dict({'acc/val': acc}, prog_bar=True, logger=True, on_epoch=True)
         return {'val_acc': acc, 'in': x, 'truth': y, 'out': pred}
@@ -120,7 +121,10 @@ class Model(pl.LightningModule):
         return out
 
     def __repr__(self):
-        return f"{self.encoder_name}-{self.encoder_weights}-{self.classes}"
+        return f"{self.model.name}-{self.encoder_weights}"
+
+    def _get_class(self, y_hat):
+        return torch.argmax(y_hat, dim=1)
 
     
 ##############################################
