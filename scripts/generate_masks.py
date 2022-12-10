@@ -9,8 +9,8 @@ from argparse import ArgumentParser
 import numpy as np
 
 from csupl.watershed import Watershed
-from csupl.utils import ColourDecoder, get_image_list, plot_overlaid, overlay_images, load_image, get_colour_decoder
-from csupl.generate_masks import merge_classes, generate_labels, get_config, write_image, crop_pair_from_polygon, crop_from_polygon
+from csupl.utils import ColourDecoder, get_image_list, plot_overlaid, overlay_images, load_image, get_colour_decoder, write_image
+from csupl.generate_masks import merge_classes, generate_labels, get_config, crop_pair_from_polygon, crop_from_polygon
 
 def parse_args():
     """

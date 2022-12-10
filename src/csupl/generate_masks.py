@@ -79,14 +79,6 @@ def write_masks(polygon_coord: dict, input_dir : Path, mask_dir : Path, f_ext : 
         mask_path = mask_dir / ".".join([k, f_ext])
         mask_im.save(mask_path, "png")
 
-def write_image(mask_dir : Path, im_fname : str, im_f : np.ndarray, f_ext : str = ".png") -> None:
-    """
-        OpenCVs saving image function:
-        Can be loaded as class indices with cv2.IMREAD_UNCHANGED in the load function
-    """
-    mask_dir = to_Path(mask_dir)
-    m_path = mask_dir / (im_fname + f_ext)
-    cv2.imwrite(str(m_path), im_f)
 
 def merge_classes(labels : np.ndarray, keep_class : int) -> np.ndarray:
     labels[labels != keep_class] = 0

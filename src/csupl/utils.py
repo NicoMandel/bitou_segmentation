@@ -111,6 +111,16 @@ def load_image(fpath : str) -> np.ndarray:
     img = cv2.imread(fpath, cv2.IMREAD_UNCHANGED)
     return img
 
+def write_image(mask_dir : Path, im_fname : str, im_f : np.ndarray, f_ext : str = ".png") -> None:
+    """
+        OpenCVs saving image function:
+        Can be loaded as class indices with cv2.IMREAD_UNCHANGED in the load function
+    """
+    mask_dir = to_Path(mask_dir)
+    m_path = mask_dir / (im_fname + f_ext)
+    if os.path.exists(m_path): raise OSError("{} already exists.".format(m_path))
+    cv2.imwrite(str(m_path), im_f)
+
 def _validate_img(img : np.ndarray) -> bool:
     assert img.shape == 3
     return True
@@ -134,12 +144,6 @@ def get_image_list(dir : Path, f_ext : str = ".JPG") -> list:
         dir = Path(dir)
     img_list = list([x.stem for x in dir.glob("*"+f_ext)])
     return img_list
-    
-def read_image(img_path : str) -> np.array:
-    img_path = check_path(img_path)
-    img = cv2.imread(img_path)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    return img
 
 def plot_images(img : np.ndarray, mask : np.ndarray, img_name : str, K : int) -> None:
     fig, axs = plt.subplots(1,2)
@@ -206,8 +210,6 @@ def plot_overlaid(mixed : np.ndarray, title : str = ""):
     plt.title(title)
     plt.show()
 
-def save_image(outfig : str, mask : np.ndarray) -> None:
-    cv2.imwrite(outfig, cv2.cvtColor(mask, cv2.COLOR_BGR2RGB))
 
 def resize_img(img : np.array, scale_perc : int = 50) -> np.array:
     """
