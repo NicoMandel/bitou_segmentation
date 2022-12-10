@@ -62,7 +62,7 @@ echo ${body_2} >> ${this_script_file}
 # Actual command to execute
 echo "python scripts/train_model.py -c ${classes} -m ${model_name} --encoder ${encoder_name} --weights ${weights}\
 --width ${width} --height ${height}
--workers ${workers} -b ${batch} -e ${epochs} -s ${freeze}\
+-workers ${workers} -b ${batch} -e ${epochs} ${freeze}\
 -i ${data_dir} -o ${output_dir}" >> ${this_script_file}
 qsub ${this_script_file}
 

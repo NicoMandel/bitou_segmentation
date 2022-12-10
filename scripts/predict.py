@@ -5,6 +5,7 @@ import torch
 import numpy as np
 import os.path
 from argparse import ArgumentParser
+from pathlib import Path
 
 # from flash.core.data.utils import download_data
 from csupl.model import Model
@@ -19,7 +20,8 @@ def parse_args():
     parser.add_argument("-m", "--model", type=str, help="Which model to load. If None given, will look for <best> in <results> folder", default=None)
     parser.add_argument("-i", "--input", help="Input. If directory, will look for .png and .JPG files within this directory. If file, will attempt to load file.", type=str)
     parser.add_argument("-o", "--output", type=str, help="Output directory. Will use input file name. If none given, will plot result. If already exists, will also plot.", default=None)
-    parser.add_argument("--alpha", help="alpha factor for overlay. If not given, will plot input and output side by side.", default=None)
+    parser.add_argument("--alpha", help="alpha factor for overlay. If not given, will plot mask.", default=None)
+    parser.add_argument("--f_ext", help="File extension to use on folder. Defaults to .JPG", type=str, default=".JPG")
 
     # Model size settings
     # parser.add_argument("--width", help="Width to be used for training", default=512, type=int)
@@ -29,7 +31,7 @@ def parse_args():
     return vars(args)
 
 def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, device : torch.device) -> np.ndarray:
-    x = augmentations(img)
+    x = augmentations(image=img)['image']
     x.to(device)
     with torch.no_grad():
         y_hat = model(x)
@@ -78,22 +80,22 @@ if __name__=="__main__":
     # check input format
     if os.path.isdir(args["input"]):
         # get file list
-        print("{} is a directory. Reading all .png and .JPG files".format(args["input"]))
-        img_list_jpg = get_image_list(args["input"], ".JPG")
-        img_list_png = get_image_list(args["input"], f_ext=".png")
-        print("Found {} .JPG and {} .png images. Going through them individually".format(
-            len(img_list_jpg), len(img_list_png)
+        print("{} is a directory. Reading all {} files".format(args["input"], args["f_ext"]))
+        img_list = get_image_list(args["input"], args["f_ext"])
+        print("Found {} {} images. Going through them individually".format(
+            len(img_list), args["f_ext"]
         ))
         img_dir = args["input"]
-        img_list = img_list_png + img_list_jpg
+        f_ext = args["f_ext"]
     else:
         print("{} is an image. Reading image".format(args["input"]))
         img_dir = os.path.dirname(args["input"])
-        img_list = [os.path.basename(args["input"])]
+        img_list = [str(Path(args["input"]).stem)]
+        _, f_ext = os.path.splitext(args["input"])
 
     # go through the image list
     for img_f in img_list:
-        fpath = os.path.join(img_dir, img_f)
+        fpath = os.path.join(img_dir, (img_f + f_ext))
         img = load_image(fpath)
         x = img.copy()
         # model pass

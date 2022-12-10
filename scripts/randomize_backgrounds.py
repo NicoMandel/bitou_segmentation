@@ -21,7 +21,8 @@ def parse_args():
     parser.add_argument("-i", "--input", help="Directory where original images are stored", type=str, default=def_input)
     parser.add_argument("-r", "--random", help="Directory where random images come from", type=str)
     parser.add_argument("-l", "--labels", help="Directory where the labels are loaded from", type=str)
-    parser.add_argument("-o", "--output", help="Directory where newly generated files should be output to. If none, will cycle through images and plot side by side", type=str, default=None)
+    parser.add_argument("-o", "--output", help="Directory where newly generated files should be output to. Both new masks and new images.\
+                        If none, will cycle through images and plot side by side", type=str, default=None)
     parser.add_argument("--file-extension", help="Image file extension to read in, with dot. Defaults to .png", default=".png")
     parser.add_argument("-c", "--class", type=int, help="Class index for the background which will be overlaid. Defaults to 0", default=0)
     # TODO: make this generic - can it work with a list - see [here](https://stackoverflow.com/questions/15753701/how-can-i-pass-a-list-as-a-command-line-argument-with-argparse)
@@ -68,3 +69,4 @@ if __name__=="__main__":
         else:
             # TODO: update the names with random integers
             write_image(args["output"], img_fname, out_img)
+            # TODO: also write a mask out
