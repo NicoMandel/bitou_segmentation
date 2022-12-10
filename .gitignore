@@ -25,3 +25,6 @@ results/**
 
 ## have to gitignore large .pkl files in config
 config/*.pkl
+
+# "Best" file in results folder
+results/best
