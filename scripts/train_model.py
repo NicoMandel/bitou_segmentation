@@ -53,6 +53,7 @@ def parse_args():
     parser.add_argument("-l", "--limit", default=1.0, type=float, help="%% the training and validation batches to be used. Default is 1.0")
     parser.add_argument("-e", "--epochs", default=25, type=int, help="Maximum epochs, iterations of training. Default is 25")
     parser.add_argument("--val", type=float, help="Validation Percentage of the training dataset.", default=0.25)
+    parser.add_argument("--freeze", action="store_true", help="If set, will freeze the encoder during training")
 
     # Dataset Settings
     parser.add_argument("-i", "--input", help="Input Directory. Within this directory, will look for <images> and <masks> for training", type=str, required=True)
@@ -200,7 +201,8 @@ if __name__=="__main__":
         )
 
     # actual training step
-    model.freeze_encoder()
+    if args["freeze"]:
+        model.freeze_encoder()
     trainer.fit(model, datamodule=datamodule)
 
     # Exporting the model

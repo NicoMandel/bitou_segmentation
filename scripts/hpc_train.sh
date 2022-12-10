@@ -32,6 +32,13 @@ width=512
 workers=4		# default = 4 * nGPUS
 batch=16		# default batch size
 epochs=30
+freeze_bool=true
+freeze=''
+if [ ${freeze_bool} = true ]
+    freeze="--freeze"
+else
+    freeze=''
+fi
 
 # Dataset Settings
 data_dir="/work/quteagles/data_bitou/multiclass_1"
@@ -55,7 +62,7 @@ echo ${body_2} >> ${this_script_file}
 # Actual command to execute
 echo "python scripts/train_model.py -c ${classes} -m ${model_name} --encoder ${encoder_name} --weights ${weights}\
 --width ${width} --height ${height}
--workers ${workers} -b ${batch} -e ${epochs} -s\
+-workers ${workers} -b ${batch} -e ${epochs} -s ${freeze}\
 -i ${data_dir} -o ${output_dir}" >> ${this_script_file}
 qsub ${this_script_file}
 
