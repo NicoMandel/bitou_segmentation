@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 import numpy as np
 import cv2
 
-from csupl.utils import to_Path, get_image_list, load_image, load_label, replace_image_values, plot_overlaid
+from csupl.utils import to_Path, get_image_list, load_image, load_label, replace_image_values, plot_overlaid, write_image
 
 def parse_args():
     """
@@ -63,4 +63,8 @@ if __name__=="__main__":
 
         out_img = replace_image_values(img, r_img, label, exchange_class)
         out_img = cv2.cvtColor(out_img, cv2.COLOR_BGR2RGB)
-        plot_overlaid(out_img, "+".join([img_fname, r_img_fname]))
+        if args["output"] is None:
+            plot_overlaid(out_img, "+".join([img_fname, r_img_fname]))
+        else:
+            # TODO: update the names with random integers
+            write_image(args["output"], img_fname, out_img)

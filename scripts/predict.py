@@ -6,18 +6,12 @@ import numpy as np
 import os.path
 from argparse import ArgumentParser
 
-import pytorch_lightning as pl
 # from flash.core.data.utils import download_data
 from csupl.model import Model
-from csupl.dataloader import BitouDataset
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-from torch.utils.data import DataLoader
 
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-
-from csupl.utils import load_image, load_label, get_colour_decoder, InverseNormalization, get_image_list, overlay_images, plot_overlaid, write_image
+from csupl.utils import load_image, get_colour_decoder, get_image_list, overlay_images, plot_overlaid, write_image
 
 def parse_args():
     parser = ArgumentParser(description="Training Loop for Semantic Segmentation model")
