@@ -3,10 +3,11 @@
     Cannot be performed online due to albumentations call syntax
 """
 
-from os import path
+from os import path, mkdir
 from argparse import ArgumentParser
 import numpy as np
 import cv2
+from tqdm import tqdm
 
 from csupl.utils import to_Path, get_image_list, load_image, load_label, replace_image_values, plot_overlaid, write_image
 
@@ -47,9 +48,21 @@ if __name__=="__main__":
     # random generation of new image
     random_list = get_image_list(random_dir, f_ext=".JPG")
     assert len(random_list) > 0
-    rng = np.random.default_rng()
 
-    for img_fname in img_list:
+    # making subfolders
+    out_dir = args["output"]
+    if out_dir is not None:
+        labels_out = path.join(out_dir, "labels")
+        imgs_out = path.join(out_dir, "images")
+        try:
+            mkdir(str(labels_out))
+            print(f"Created new directory for labels: {labels_out}")
+            mkdir(str(imgs_out))
+            print(f"Created new directory for images: {imgs_out}")
+        except OSError: raise
+
+
+    for img_fname in tqdm(img_list):
         im_path = input_dir / (img_fname + ".JPG")
         img = load_image(im_path)
         assert img is not None
@@ -57,16 +70,16 @@ if __name__=="__main__":
         label = load_label(label_path)
         assert label is not None
 
-        r_img_fname = rng.choice(random_list)
-        r_img_f = random_dir / (r_img_fname + ".JPG")
-        r_img = load_image(r_img_f)
-        assert r_img is not None
+        for i, rnd_fname in enumerate(tqdm(random_list, leave=False)):
+            r_img_f = random_dir / (rnd_fname + ".JPG")
+            r_img = load_image(r_img_f)
+            assert r_img is not None
 
-        out_img = replace_image_values(img, r_img, label, exchange_class)
-        out_img = cv2.cvtColor(out_img, cv2.COLOR_BGR2RGB)
-        if args["output"] is None:
-            plot_overlaid(out_img, "+".join([img_fname, r_img_fname]))
-        else:
-            # TODO: update the names with random integers
-            write_image(args["output"], img_fname, out_img)
-            # TODO: also write a mask out
+            out_img = replace_image_values(img, r_img, label, exchange_class)
+            out_img = cv2.cvtColor(out_img, cv2.COLOR_BGR2RGB)
+            if args["output"] is None:
+                plot_overlaid(out_img, "+".join([img_fname, str(i), rnd_fname]))
+            else:
+                new_fname = "_".join([img_fname, str(i)]) 
+                write_image(imgs_out, new_fname, out_img)
+                write_image(labels_out, new_fname, label)
