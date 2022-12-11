@@ -121,7 +121,7 @@ class Model(pl.LightningModule):
         return out
 
     def __repr__(self):
-        return f"{self.model.name}-{self.encoder_weights}"
+        return f"{self.model.name}-{self.encoder_weights}_{self.classes}"
 
     def _get_class(self, y_hat):
         return torch.argmax(y_hat, dim=1)

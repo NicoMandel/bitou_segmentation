@@ -39,7 +39,7 @@ def rescale_image(img : torch.Tensor, msg: str) -> torch.Tensor:
     return nimg
 
 
-def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, device : torch.device, rescale : int = 44) -> np.ndarray:
+def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, device : torch.device, rescale : int = 42) -> np.ndarray:
     """
         ! model size 100% breaks the GPU memory on my computer ( > 6 GB) -> rescaling image necessary.
         Binary search by hand resulted in **44 %** being the largest possible size. 

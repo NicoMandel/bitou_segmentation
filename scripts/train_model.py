@@ -85,7 +85,7 @@ def get_training_transforms(height : int, width : int, mean : tuple, std : tuple
         #     A.RandomCrop(height, width, p=1),
         #     # A.Resize(height, width, p=1)
         # ], p=p),
-        A.Resize(height, width, p=1),
+        A.RandomCrop(height, width, p=1),
         A.OneOf([
             A.VerticalFlip(p=p),
             A.Rotate(limit=179, p=p),
