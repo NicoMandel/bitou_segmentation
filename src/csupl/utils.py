@@ -12,6 +12,9 @@ from PIL import Image
 import json
 import os.path
 import torch
+# import torch.nn.functional as F
+from torchvision.transforms import Pad
+import re
 """
     Section on plotting images
 """
@@ -135,6 +138,42 @@ def overlay_images(img : np.ndarray, mask : np.ndarray, alpha : int = 0.7):
     """
     overlaid = cv2.addWeighted(img, alpha, mask, (1-alpha), 0)
     return overlaid
+
+def extract_new_size(msg : RuntimeError) -> tuple:
+    """
+        Function to extract the new image size from an error message as specified by smp
+    """
+    test_str = r'{}'.format(msg.args[0])
+    # pattern = r'(?<=\()(.*?)(?=\))'
+    pattern = "\((.*)\)"
+    result = re.match(pattern, test_str)
+    return result
+
+def pad_image(x : torch.Tensor, nshape : tuple) -> torch.Tensor :
+    """
+        Function to pad an image for an error message
+        TODO: make this generic to work with pytorch tensors - if already on the GPU - use padding: https://pytorch.org/docs/stable/generated/torch.nn.functional.pad.html
+        or ConstantPad: https://pytorch.org/docs/stable/generated/torch.nn.ConstantPad2d.html
+        or torchvision Pad: https://pytorch.org/vision/stable/generated/torchvision.transforms.Pad.html
+    """
+    top, bottom, left, right = _calculate_symmetric_difference(x.shape, nshape)
+    nx = Pad(padding=(left, top, right, bottom))(x)
+    # nx = F.pad(input=x, pad=(left, right, top, bottom), mode="constant", value=0)
+    # nimg = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, 0)
+    assert nx.shape == nshape
+    return nx
+
+def _calculate_symmetric_difference(old_shape : tuple, nshape : tuple) -> tuple:
+    """
+        function to calculate the differences for use with pad_image. Careful: pad values are the paddings to be used
+    """
+    diff_x = nshape[0] - old_shape[0]
+    diff_y = nshape[1] - old_shape[1]
+    top = diff_x // 2
+    bottom = diff_x - top
+    left = diff_y // 2
+    right = diff_y - left
+    return top, bottom, left, right
 
 """
     Section on image function
