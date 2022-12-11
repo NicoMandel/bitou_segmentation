@@ -12,7 +12,7 @@ from csupl.model import Model
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-from csupl.utils import load_image, get_colour_decoder, get_image_list, overlay_images, plot_overlaid, write_image, extract_new_size, pad_image
+from csupl.utils import load_image, get_colour_decoder, get_image_list, overlay_images, plot_overlaid, write_image, extract_new_size, pad_image, resize_img
 
 def parse_args():
     parser = ArgumentParser(description="Training Loop for Semantic Segmentation model")
@@ -39,22 +39,28 @@ def rescale_image(img : torch.Tensor, msg: str) -> torch.Tensor:
     return nimg
 
 
-def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, device : torch.device) -> np.ndarray:
-    
-    x = augmentations(image=img)['image']
-    x.to(device)
+def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, device : torch.device, rescale : int = 44) -> np.ndarray:
+    """
+        ! model size 100% breaks the GPU memory on my computer ( > 6 GB) -> rescaling image necessary.
+        Binary search by hand resulted in **44 %** being the largest possible size. 
+        For images of size (5460, 8192) that results in input iamges of size (2402, 3604) -> padded to (2432, 3616)
+    """
+    img = resize_img(img, rescale)
+    x = augmentations(image=img)['image'].to(device).unsqueeze(dim=0)
+    # x.to(device)
     with torch.no_grad():
         try:
             y_hat = model(x)
         except RuntimeError as e:
             nx = rescale_image(x, e)
+            # nx.to(device)
             y_hat = model(nx)
    
     # binary case:
     if model.classes == 1:
-        y_hat.sigmoid().detach().cpu().numpy()
+        y_hat.squeeze().sigmoid().detach().cpu().numpy()
     else:       # multiclass case
-        y_hat = torch.argmax(y_hat, dim=1).detach().cpu().numpy()
+        y_hat = torch.argmax(y_hat, dim=1).squeeze().detach().cpu().numpy()
     return y_hat
 
 

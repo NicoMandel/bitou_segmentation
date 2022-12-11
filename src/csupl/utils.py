@@ -143,11 +143,15 @@ def extract_new_size(msg : RuntimeError) -> tuple:
     """
         Function to extract the new image size from an error message as specified by smp
     """
-    test_str = r'{}'.format(msg.args[0])
-    # pattern = r'(?<=\()(.*?)(?=\))'
-    pattern = "\((.*)\)"
-    result = re.match(pattern, test_str)
-    return result
+    # test_str = r'{}'.format(msg.args[0])
+    test_str = msg.args[0]
+    pattern = r'(?<=\()(.*?)(?=\))'
+    # pattern = "\((.*)\)"
+    # pattern = "\(([^\)]+)\)"
+    regexresult = re.search(pattern, test_str).group(0).split(",")
+    h = int(regexresult[0])
+    w = int(regexresult[1])
+    return h, w
 
 def pad_image(x : torch.Tensor, nshape : tuple) -> torch.Tensor :
     """
@@ -156,11 +160,11 @@ def pad_image(x : torch.Tensor, nshape : tuple) -> torch.Tensor :
         or ConstantPad: https://pytorch.org/docs/stable/generated/torch.nn.ConstantPad2d.html
         or torchvision Pad: https://pytorch.org/vision/stable/generated/torchvision.transforms.Pad.html
     """
-    top, bottom, left, right = _calculate_symmetric_difference(x.shape, nshape)
+    top, bottom, left, right = _calculate_symmetric_difference(x.shape[-2:], nshape)
     nx = Pad(padding=(left, top, right, bottom))(x)
     # nx = F.pad(input=x, pad=(left, right, top, bottom), mode="constant", value=0)
     # nimg = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, 0)
-    assert nx.shape == nshape
+    assert nx.shape[-2:] == nshape
     return nx
 
 def _calculate_symmetric_difference(old_shape : tuple, nshape : tuple) -> tuple:
