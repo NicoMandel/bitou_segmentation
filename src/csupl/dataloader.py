@@ -88,6 +88,9 @@ class BitouDataModule(pl.LightningDataModule):
         # File extensions
         self.img_ext = img_ext
         self.mask_ext = mask_ext
+    
+    def __len__(self) -> int:
+        return len(self.default_dataset)
 
     # TODO: change this from assigning states (self.x) because it will only be run on one process - use setup.
     # see [here](https://pytorch-lightning.readthedocs.io/en/latest/data/datamodule.html#prepare-data)
