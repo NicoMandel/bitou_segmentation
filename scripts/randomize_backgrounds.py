@@ -72,7 +72,7 @@ if __name__=="__main__":
 
         # Write the og image and label
         if args["output"]:
-            write_image(imgs_out, img_fname, img)
+            write_image(imgs_out, img_fname, img, f_ext=".JPG")
             write_image(labels_out, img_fname ,label)
         for i, rnd_fname in enumerate(tqdm(random_list, leave=False)):
             r_img_f = random_dir / (rnd_fname + ".JPG")
@@ -85,5 +85,5 @@ if __name__=="__main__":
                 plot_overlaid(out_img, "+".join([img_fname, str(i), rnd_fname]))
             else:
                 new_fname = "_".join([img_fname, str(i)]) 
-                write_image(imgs_out, new_fname, out_img)
+                write_image(imgs_out, new_fname, out_img, f_ext=".JPG")
                 write_image(labels_out, new_fname, label)

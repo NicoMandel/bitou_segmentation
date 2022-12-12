@@ -7,7 +7,9 @@
 
 import os
 from argparse import ArgumentParser
-from csupl.utils import get_image_list
+from tqdm import tqdm
+from csupl.utils import get_image_list, load_label
+from PIL import Image
 
 def parse_args():
     parser = ArgumentParser(description="File for checking the integrity of a data folder.")
@@ -67,20 +69,44 @@ if __name__=="__main__":
     assert len(img_list) == len(label_list), f"{len(img_list)} images and {len(label_list)} masks. Does not match"
     print(f"{len(img_list)} images and {len(label_list)} masks found. Proceeding")
     # check that every image in <labels> has a name correspondence in <images>
+    
+    img_size = None
     for img_f in img_list:
+        # loading the label for the corresponding image
         lpath = os.path.join(label_folder, img_f+label_ext)
+
         assert os.path.exists(lpath), f"{lpath} does not exist"
+        l_ptr = Image.open(lpath)
+        ls = l_ptr.size
+        if img_size is None:
+            img_size = ls
+        assert ls == img_size, f"Label {img_f} has size different from first label: {img_size}. Image size is: {ls} Check consistency"
     print("Every image has a corresponding mask. Proceeding")
+    print(f"Every mask is the same size: {img_size}, Proceeding.")
     # check that every image in <images> has a correspondence in <labels>
     for label_f in label_list:
         ipath = os.path.join(image_folder, label_f+img_ext)
         assert os.path.exists(ipath), f"{ipath} does not exist"
+        img_ptr = Image.open(ipath)
+        ims = img_ptr.size
+        assert ims == img_size, f"Image {label_f} has size different from first image: {img_size}. Image size is: {ims} Check consistency"
     print("Every mask has a corresponding image. Proceeding")
+    print(f"Every image has the same size as the masks: {img_size}. Proceeding")
+    
+    print("Finished with Folder consistency checks")
+    print(80*"=")
+    print("\n\n")
     # Check for classes
-
+    print("Proceeding with checking Class consistency")
+    for label_fname in tqdm(label_list):
+        label_f = os.path.join( label_folder, label_fname + label_ext)
+        l = load_label(label_f)
+        assert l.max() < args["classes"], f"{label_fname} has a value larger than {args['classes']}, check label consistency."
+        assert l.min() >=0 , f"Minimum value of {label_fname} is less than 0, check label consistency"
+    print(f"Labels all have values between 0 and {args['classes']}")
     # extended functionality:
     if args["extended"]:
-        pass
+        raise NotImplementedError("Not implemented yet. Please hold")
         # find out class statistics. Count over the entire dataset
 
         # find the maximum value in <labels>
@@ -91,3 +117,4 @@ if __name__=="__main__":
         # find out approximate mean and std. deviation over the dataset
         # use batches for this
 
+    print("All checks passed. Good to go into training.")
