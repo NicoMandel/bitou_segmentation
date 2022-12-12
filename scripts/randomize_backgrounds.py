@@ -70,6 +70,10 @@ if __name__=="__main__":
         label = load_label(label_path)
         assert label is not None
 
+        # Write the og image and label
+        if args["output"]:
+            write_image(imgs_out, img_fname, img)
+            write_image(labels_out, img_fname ,label)
         for i, rnd_fname in enumerate(tqdm(random_list, leave=False)):
             r_img_f = random_dir / (rnd_fname + ".JPG")
             r_img = load_image(r_img_f)
