@@ -202,9 +202,9 @@ if __name__=="__main__":
 
     print(80*"=")
     print("Training Settings:")
-    print("Number of files in dataset: {}\tValidation percentage: {}%%\tBatch size{}\tEpochs:{}\
-        Classe: {}".format(
-        len(datamodule), int(datamodule.val_percentage *100), args["batch"], args["epochs"], args["classes"]
+    print("Validation percentage: {}%%\tBatch size{}\tEpochs:{}\t\
+        Classes: {}".format(
+        int(datamodule.val_percentage *100), args["batch"], args["epochs"], args["classes"]
     ))
     print(80*"=")
     # actual training step
