@@ -198,6 +198,24 @@ def plot_images(img : np.ndarray, mask : np.ndarray, img_name : str, K : int) ->
     axs[1].axis('off')
     axs[1].set_title('Clusters')
     fig.suptitle(f"Image: {img_name}, Clusters: {K}")
+    fig.tight_layout()
+    plt.show()
+
+def plot_three(img : np.ndarray, mask : np.ndarray, prediction : np.ndarray, img_name : str) -> None:
+    fig, axs = plt.subplots(1,3)
+    axs[0].imshow(img)
+    axs[0].axis('off')
+    axs[0].set_title('Image')
+
+    axs[1].imshow(mask)
+    axs[1].axis('off')
+    axs[1].set_title('Truth')
+
+    axs[2].imshow(prediction)
+    axs[2].axis('off')
+    axs[2].set_title('Prediction')
+    fig.suptitle(f"Image: {img_name}")
+    fig.tight_layout()
     plt.show()
 
 def plot_grayscale(img : np.ndarray, mask : np.ndarray, title : str) -> None:
