@@ -8,8 +8,9 @@
 import os
 from argparse import ArgumentParser
 from tqdm import tqdm
-from csupl.utils import get_image_list, load_label
+from csupl.utils import get_image_list, load_label, load_image
 from PIL import Image
+import numpy as np
 
 def parse_args():
     parser = ArgumentParser(description="File for checking the integrity of a data folder.")
@@ -33,6 +34,29 @@ def check_overlap(set1 : set, set2: set):
     assert over, f"No overlap between {set1} and {set2}"
     print(f"Overlap between sets: {over}")
     return over
+
+# Stats batch updates from: https://notmatthancock.github.io/2017/03/23/simple-batch-stat-updates.html
+def update_mean(mu_m : float, m : int, n_sample : np.ndarray) -> float:
+    mu_n = n_sample.mean()
+    n = n_sample.size
+    n_samp_size = m + n
+    mu = (m / n_samp_size) * mu_m + (n / n_samp_size) * mu_n
+    return mu
+
+def update_var(var_m : float, mu_m : float, m : int, n_sample : np.ndarray) -> float:
+    """
+        use sqrt to get standard deviation
+    """
+    mu_n = n_sample.mean()
+    var_n = n_sample.var()
+    n = n_sample.size()
+    n_samp_size = m + n
+    n_samp_prod = m*n
+    term_1 = (m / n_samp_size) * var_m
+    term_2 = (n / n_samp_size) * var_n
+    term_3 = (n_samp_prod / (n_samp_size**2)) * (mu_m - mu_n)**2
+    return term_1 + term_2 + term_3, n_samp_size
+
 
 if __name__=="__main__":
     args = parse_args()
@@ -106,8 +130,19 @@ if __name__=="__main__":
     print(f"Labels all have values between 0 and {args['classes']}")
     # extended functionality:
     if args["extended"]:
-        raise NotImplementedError("Not implemented yet. Please hold")
+        # raise NotImplementedError("Not implemented yet. Please hold")
         # find out class statistics. Count over the entire dataset
+        c_ct = [0] * args["classes"]
+        for label_f in label_list:
+            lpath = os.path.join(label_folder, label_f+label_ext)
+            labels = load_label(lpath)
+            for i in range(args["classes"] + 1):
+                c_ct[i] += np.count_nonzero(labels == i)
+        c_sum = sum(c_ct)
+        for cs, i in enumerate(c_ct):
+            print("Class {} has {:.2f} %% of the dataset.".format(
+                i, (cs / c_sum) * 100
+            ))
 
         # find the maximum value in <labels>
 
@@ -115,6 +150,21 @@ if __name__=="__main__":
 
 
         # find out approximate mean and std. deviation over the dataset
-        # use batches for this
+        # size is fixed, so each image counts as its own
+        mean = [0, 0, 0]
+        variance = [0, 0, 0]
+        px_ct = 0
+        for img_f in img_list:
+            # loading the label for the corresponding image
+            ipath = os.path.join(image_folder, img_f+img_ext)
+            img = load_image(ipath)
+            for i in range(len(mean)):
+                variance[i] = update_var(variance[i], mean[i], px_ct, img[...,i])
+                mean[i], px_ct = update_mean(mean[i], px_ct, img[...,i])
+                
+        std_dev = np.sqrt(variance)
+        print("Channelwise mean of Dataset: {}\tStandard Deviation of Dataset: {}".format(
+            mean, std_dev
+        ))
 
     print("All checks passed. Good to go into training.")
