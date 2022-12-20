@@ -32,18 +32,31 @@ def get_polygon_coordinates(json_dict : dict) -> dict:
     for _, v in json_dict.items():
         # if len(v['regions']) > 1:
         #     print(v['filename'])
+        xy_list = []
         if v['regions']:
-            xy_list = []
             for reg in v['regions']:
                 x = reg['shape_attributes']['all_points_x']
                 y = reg['shape_attributes']['all_points_y']
                 xy = list(zip(x, y))
                 xy_list.append(xy)
-        else:
-            poly_dict[v['filename'].split('.')[0]] = []
         poly_dict[v['filename'].split('.')[0]] = xy_list
     
     return poly_dict
+
+def split_polyon_dict(poly_dict : dict) -> tuple:
+    """
+        Function to split a polygon dictionary into a positive dictionary and a negative list
+    """
+    pos_dict = {}
+    neg_list = []
+    for k, v in poly_dict.items():
+        if v:
+            pos_dict[k] = poly_dict[k]
+        else:
+            neg_list.append(k)
+
+    return pos_dict, neg_list
+
 
 def generate_mask_image(mask_img : Image.Image, polygon_coord : list, class_idx : int = 1, whiteout : bool = False) -> Image.Image:
     """
