@@ -14,9 +14,10 @@ import numpy as np
 
 def parse_args():
     parser = ArgumentParser(description="File for checking the integrity of a data folder.")
-    parser.add_argument("-i", "--input", type=str, help="Location of the data folder. Will look for <images> and <masks> in folder", required=True)
-    parser.add_argument("-c", "--classes", required=True, type=int, help="How many classes should be in the <labels> folder.")
-    parser.add_argument("-e", "--extended", help="Whether to run extended check", action="store_true")
+    parser.add_argument("-i", "--input", type=str, help="Location of the data folder. Will look for <images> and <masks> in folder. Should be directory \
+                        data in parent of this script", required=True)
+    parser.add_argument("-c", "--classes", required=True, type=int, help="How many classes should be in the <labels> folder. Should be 2 for binary case")
+    parser.add_argument("-e", "--extended", help="Whether to run extended check to get dataset statistics. Mean and percentage of classes across dataset", action="store_true")
     args = parser.parse_args()
     return vars(args)
 
@@ -41,7 +42,7 @@ def update_mean(mu_m : float, m : int, n_sample : np.ndarray) -> float:
     n = n_sample.size
     n_samp_size = m + n
     mu = (m / n_samp_size) * mu_m + (n / n_samp_size) * mu_n
-    return mu
+    return mu, n_samp_size
 
 def update_var(var_m : float, mu_m : float, m : int, n_sample : np.ndarray) -> float:
     """
@@ -49,13 +50,13 @@ def update_var(var_m : float, mu_m : float, m : int, n_sample : np.ndarray) -> f
     """
     mu_n = n_sample.mean()
     var_n = n_sample.var()
-    n = n_sample.size()
+    n = n_sample.size
     n_samp_size = m + n
     n_samp_prod = m*n
     term_1 = (m / n_samp_size) * var_m
     term_2 = (n / n_samp_size) * var_n
     term_3 = (n_samp_prod / (n_samp_size**2)) * (mu_m - mu_n)**2
-    return term_1 + term_2 + term_3, n_samp_size
+    return term_1 + term_2 + term_3
 
 
 if __name__=="__main__":
@@ -136,10 +137,10 @@ if __name__=="__main__":
         for label_f in label_list:
             lpath = os.path.join(label_folder, label_f+label_ext)
             labels = load_label(lpath)
-            for i in range(args["classes"] + 1):
+            for i in range(args["classes"]):
                 c_ct[i] += np.count_nonzero(labels == i)
         c_sum = sum(c_ct)
-        for cs, i in enumerate(c_ct):
+        for i, cs in enumerate(c_ct):
             print("Class {} has {:.2f} %% of the dataset.".format(
                 i, (cs / c_sum) * 100
             ))
@@ -154,7 +155,7 @@ if __name__=="__main__":
         mean = [0, 0, 0]
         variance = [0, 0, 0]
         px_ct = 0
-        for img_f in img_list:
+        for img_f in tqdm(img_list):
             # loading the label for the corresponding image
             ipath = os.path.join(image_folder, img_f+img_ext)
             img = load_image(ipath)
