@@ -30,6 +30,7 @@ from argparse import ArgumentParser
 # import transforms as tfs
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
+# import cv2 # for border_mode.CONSTANT in PadIfNeeded
 
 # Logging
 # from pytorch_lightning import loggers as pl_loggers
@@ -43,8 +44,8 @@ def parse_args():
     parser.add_argument("--weights", type=str, help="Encoder Weight pretraining to be used. Default is imagenet", default="imagenet")
 
     # Model size settings
-    parser.add_argument("--width", help="Width to be used for training", default=512, type=int)
-    parser.add_argument("--height", help="Height to be used during training", default=512, type=int)
+    parser.add_argument("--width", help="Width to be used for training", default=None, type=int)
+    parser.add_argument("--height", help="Height to be used during training", default=None, type=int)
     
     # Training settings
     parser.add_argument("-b", "--batch", type=int, default=12, help="batch size to be used. Should not exceed memory, depends on Network")
@@ -77,15 +78,26 @@ def get_model_export_path(directory, model, f_ext = ".pt"):
     modelname = get_model_name(model)
     return os.path.join(directory, modelname + f_ext)
 
-def get_training_transforms(height : int, width : int, mean : tuple, std : tuple, p : float=0.3) -> A.Compose:
-    tfs = A.Compose([
+def get_shape(height : int = None, width : int = None) -> tuple:
+    if not (height or width): 
+        return None
+    elif height and not width:
+        return (height, height)
+    elif width and not height:
+        return (width, width)
+    else:
+        return (height, width)
+
+
+def get_training_transforms(shape : tuple, mean : tuple, std : tuple, p : float=0.5) -> A.Compose:
+    tf_list = [
             # Spatial Transforms
-        # A.OneOf([
-        #     A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
-        #     A.RandomCrop(height, width, p=1),
+        A.OneOrOther(
+            A.RandomSizedCrop((shape[0], 10*shape[0]), shape[0], shape[1], shape[1]/shape[0]),
+            A.RandomCrop(shape[0], shape[1]),
         #     # A.Resize(height, width, p=1)
-        # ], p=p),
-        A.RandomCrop(height, width, p=1),
+            p=p) if shape else None,
+        # A.RandomCrop(height, width, p=1),
         A.OneOf([
             A.VerticalFlip(p=p),
             A.Rotate(limit=179, p=p),
@@ -106,9 +118,11 @@ def get_training_transforms(height : int, width : int, mean : tuple, std : tuple
             A.OpticalDistortion(p=p),
         ], p=p),
         # Necessary Transforms        
+        # A.PadIfNeeded(min_height = None, min_width= None, pad_height_divisor=32, pad_width_divisor=32, border_mode=cv2.BORDER_CONSTANT, value=0, p=1.) if shape else None,
         A.Normalize(mean=mean, std=std),
         ToTensorV2(transpose_mask=True)        # 
-    ])
+    ]
+    tfs = A.Compose([tf for tf in tf_list if tf is not None])
     return tfs
 
 def default_args():
@@ -162,8 +176,10 @@ if __name__=="__main__":
     std = tuple(preprocess_params['std'])
 
     # Transform probability
-    p = 0.3
-    train_aug = get_training_transforms(args["height"], args["width"], mean, std, p=p)
+    p = 0.5
+    shape = get_shape(args["height"], args["width"])
+    train_aug = get_training_transforms(shape, mean, std, p=p)
+    print("Cropping to ({})".format(shape)) if shape is not None else print("Using full sized images")
 
     # lightning - updated way to load the data - with a datamodule. Much simpler
     datamodule = BitouDataModule(
@@ -176,7 +192,9 @@ if __name__=="__main__":
         train_transforms=train_aug,
         batch_size=args["batch"], 
         num_workers=args["workers"],
-        val_percentage=args["val"]
+        val_percentage=args["val"],
+        img_ext=args["image_ext"],
+        mask_ext=args["mask_ext"]
     )
 
     # Logger
@@ -202,7 +220,7 @@ if __name__=="__main__":
 
     print(80*"=")
     print("Training Settings:")
-    print("Validation percentage: {}%%\tBatch size{}\tEpochs:{}\t\
+    print("Validation percentage: {}%%\tBatch size: {}\tEpochs:{}\t\
         Classes: {}".format(
         int(datamodule.val_percentage *100), args["batch"], args["epochs"], args["classes"]
     ))
