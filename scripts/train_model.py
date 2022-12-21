@@ -179,7 +179,6 @@ if __name__=="__main__":
     p = 0.5
     shape = get_shape(args["height"], args["width"])
     train_aug = get_training_transforms(shape, mean, std, p=p)
-    print("Cropping to ({})".format(shape)) if shape is not None else print("Using full sized images")
 
     # lightning - updated way to load the data - with a datamodule. Much simpler
     datamodule = BitouDataModule(
@@ -224,6 +223,7 @@ if __name__=="__main__":
         Classes: {}".format(
         int(datamodule.val_percentage *100), args["batch"], args["epochs"], args["classes"]
     ))
+    print("Cropping to ({})".format(shape)) if shape is not None else print("Using full sized images")
     print(80*"=")
     # actual training step
     if args["freeze"]:
