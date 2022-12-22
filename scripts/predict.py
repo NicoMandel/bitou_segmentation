@@ -20,9 +20,10 @@ def parse_args():
     parser.add_argument("-m", "--model", type=str, help="Which model to load. If None given, will look for <best> in <results> folder", default=None)
     parser.add_argument("-i", "--input", help="Input. If directory, will look for .png and .JPG files within this directory. If file, will attempt to load file.", type=str)
     parser.add_argument("-o", "--output", type=str, help="Output directory. Will use input file name. If none given, will plot result. If already exists, will also plot.", default=None)
-    parser.add_argument("--alpha", help="alpha factor for overlay. If not given, will plot mask.", default=None)
+    parser.add_argument("--alpha", help="alpha factor for overlay. If not given, will plot mask.", default=None, type=float)
     parser.add_argument("--f_ext", help="File extension to use on folder. Defaults to .JPG", type=str, default=".JPG")
-
+    parser.add_argument("--gpu", action="store_true", help="If set to true, will look for GPU to run inference. Uses CPU otherwise")
+    parser.add_argument("--scale", type=int, help="Scale percentage for the image. If none given will attempt to run the full image size", default=None)
     # Model size settings
     # parser.add_argument("--width", help="Width to be used for training", default=512, type=int)
     # parser.add_argument("--height", help="Height to be used during training", default=512, type=int)
@@ -39,13 +40,12 @@ def rescale_image(img : torch.Tensor, msg: str) -> torch.Tensor:
     return nimg
 
 
-def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, device : torch.device, rescale : int = 42) -> np.ndarray:
+def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, device : torch.device) -> np.ndarray:
     """
         ! model size 100% breaks the GPU memory on my computer ( > 6 GB) -> rescaling image necessary.
         Binary search by hand resulted in **44 %** being the largest possible size. 
-        For images of size (5460, 8192) that results in input iamges of size (2402, 3604) -> padded to (2432, 3616)
+        For images of size (5460, 8192) that results in input image of size (2402, 3604) -> padded to (2432, 3616)
     """
-    img = resize_img(img, rescale)
     x = augmentations(image=img)['image'].to(device).unsqueeze(dim=0)
     # x.to(device)
     with torch.no_grad():
@@ -56,19 +56,18 @@ def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, devic
             # nx.to(device)
             y_hat = model(nx)
    
-    # binary case:
-    if model.classes == 1:
-        y_hat.squeeze().sigmoid().detach().cpu().numpy()
-    else:       # multiclass case
-        y_hat = torch.argmax(y_hat, dim=1).squeeze().detach().cpu().numpy()
-    return y_hat
+    labels = model.get_labels(y_hat)
+    return labels.cpu().numpy().astype(np.int8)
 
 
 if __name__=="__main__":
     #Setup
     args = parse_args()
     fdir = os.path.abspath(os.path.dirname(__file__))
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    if args["gpu"]:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device('cpu') 
     cdec = get_colour_decoder()
 
     # Argument unpacking
@@ -118,10 +117,13 @@ if __name__=="__main__":
     for img_f in img_list:
         fpath = os.path.join(img_dir, (img_f + f_ext))
         img = load_image(fpath)
+        assert img is not None, "Not an image File, None object. Ensure {} exists".format(fpath)
+        if args['scale'] is not None:
+            img = resize_img(img, args["scale"])
         x = img.copy()
         # model pass
-        y_hat = model_pass(model, x, augmentations, device)
-        mask = cdec(y_hat)
+        labels = model_pass(model, x, augmentations, device)
+        mask = cdec(labels)
         if args["alpha"] is not None:
             mask = overlay_images(img, mask, alpha=args["alpha"])
         

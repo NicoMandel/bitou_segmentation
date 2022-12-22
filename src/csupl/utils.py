@@ -136,7 +136,12 @@ def overlay_images(img : np.ndarray, mask : np.ndarray, alpha : int = 0.7):
     """
         Function to overlay a mask on top of an image
     """
-    overlaid = cv2.addWeighted(img, alpha, mask, (1-alpha), 0)
+    if mask.shape != img.shape:
+        top, bottom, left, right = _calculate_symmetric_difference(img.shape[:-1], mask.shape[:-1])
+        nimg = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, None, (0, 0, 0))
+        assert nimg.shape == mask.shape, "Shapes still not equal. Mask: {}\tImage:{}".format(mask.shape, nimg.shape)
+    else: nimg = img
+    overlaid = cv2.addWeighted(nimg, alpha, mask, (1-alpha), 0)
     return overlaid
 
 def extract_new_size(msg : RuntimeError) -> tuple:
@@ -164,7 +169,7 @@ def pad_image(x : torch.Tensor, nshape : tuple) -> torch.Tensor :
     nx = Pad(padding=(left, top, right, bottom))(x)
     # nx = F.pad(input=x, pad=(left, right, top, bottom), mode="constant", value=0)
     # nimg = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, 0)
-    assert nx.shape[-2:] == nshape
+    assert nx.shape[-2:] == nshape, "Shape is still not equal"
     return nx
 
 def _calculate_symmetric_difference(old_shape : tuple, nshape : tuple) -> tuple:
