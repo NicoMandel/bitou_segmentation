@@ -4,7 +4,7 @@
      the transforms
     ! basic binary segmentation example using smp and albumentations: https://github.com/catalyst-team/catalyst/blob/v21.02rc0/examples/notebooks/segmentation-tutorial.ipynb
     ! tutorial from pytorch lightning themselves: https://pytorch-lightning.readthedocs.io/en/latest/notebooks/course_UvA-DL/04-inception-resnet-densenet.html?highlight=segmentation%20task
-    
+    ! pet model for binary segmentation: https://github.com/qubvel/segmentation_models.pytorch/blob/master/examples/binary_segmentation_intro.ipynb
 
 """
 
@@ -159,9 +159,9 @@ if __name__=="__main__":
         loss_mode = sgm.losses.MULTICLASS_MODE
 
     # ! losses: https://smp.readthedocs.io/en/latest/losses.html
-    # ! logits version may be wrong here!
+    # See paper - focal loss focusses on hard examples - so that these become weighted higher during training
     # loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
-    loss = sgm.losses.JaccardLoss(loss_mode)
+    loss = sgm.losses.FocalLoss(loss_mode)
 
     # Task parameters - depending on the training settings    
     lr = 1.0e-3

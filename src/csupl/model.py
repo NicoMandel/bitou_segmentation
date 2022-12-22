@@ -91,7 +91,9 @@ class Model(pl.LightningModule):
         """
             Function to return the binary label from a prediction
         """
-        return pred.sigmoid().squeeze()
+        prob = pred.sigmoid()
+        cl = (prob > 0.5).float()
+        return cl.squeeze()
     
     def _get_label_multiclass(self, pred : torch.Tensor) -> torch.Tensor:
         """
@@ -125,7 +127,7 @@ class Model(pl.LightningModule):
         x, y = batch
         pred = self._shared_step(x)
         # Accuracy
-        pred_cl = self._get_class(pred)
+        pred_cl = self.get_labels(pred)
         acc = self.accuracy(pred_cl, y)    
 
         self.log_dict({'acc/val': acc}, prog_bar=True, logger=True, on_epoch=True)
@@ -148,9 +150,6 @@ class Model(pl.LightningModule):
 
     def __repr__(self):
         return f"{self.model.name}-{self.encoder_weights}_{self.classes}"
-
-    def _get_class(self, y_hat):
-        return torch.argmax(y_hat, dim=1)
 
     
 ##############################################
