@@ -1,7 +1,3 @@
-# data and results folder
-data/**
-results/**
-
 # compile and config files
 **/__pycache__/
 **/.vscode/

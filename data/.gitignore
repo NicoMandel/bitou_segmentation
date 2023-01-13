@@ -1,0 +1,3 @@
+# gitignore file to enable the folder to be commited and uploaded
+*
+!.gitignore
