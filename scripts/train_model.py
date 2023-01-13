@@ -38,8 +38,8 @@ from albumentations.pytorch import ToTensorV2
 def parse_args():
     parser = ArgumentParser(description="Training Loop for Semantic Segmentation model")
     # Model settings
-    parser.add_argument("-c", "--classes", default=1, type=int, help="Number of classes in the dataset (without background!). Default is 1")
-    parser.add_argument("-m", "--model", type=str, help="Which model to choose. Uses segmentation models pytorch")
+    parser.add_argument("-c", "--classes", default=2, type=int, help="Number of classes in the dataset. Default is 2 - Binary case")
+    parser.add_argument("-m", "--model", type=str, help="Which model to choose. Uses segmentation models pytorch", required=True)
     parser.add_argument("--encoder", type=str, help="Encoder name to be used with decoder architecture. Default is resnet34", default="resnet34")
     parser.add_argument("--weights", type=str, help="Encoder Weight pretraining to be used. Default is imagenet", default="imagenet")
 
@@ -87,7 +87,6 @@ def get_shape(height : int = None, width : int = None) -> tuple:
         return (width, width)
     else:
         return (height, width)
-
 
 def get_training_transforms(shape : tuple, mean : tuple, std : tuple, p : float=0.5) -> A.Compose:
     tf_list = [
@@ -161,8 +160,8 @@ if __name__=="__main__":
     # ! losses: https://smp.readthedocs.io/en/latest/losses.html
     # See paper - focal loss focusses on hard examples - so that these become weighted higher during training
     # loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
-    loss = sgm.losses.FocalLoss(loss_mode)
-
+    # loss = sgm.losses.FocalLoss(loss_mode)
+    loss = sgm.losses.TverskyLoss(alpha=0.2, beta=0.8, mode=loss_mode)
     # Task parameters - depending on the training settings    
     lr = 1.0e-3
     weight_decay = 1.0e-4
