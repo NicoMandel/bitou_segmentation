@@ -15,7 +15,7 @@ from albumentations.pytorch import ToTensorV2
 from csupl.utils import load_image, get_colour_decoder, get_image_list, overlay_images, plot_overlaid, write_image, extract_new_size, pad_image, resize_img
 
 def parse_args():
-    parser = ArgumentParser(description="Training Loop for Semantic Segmentation model")
+    parser = ArgumentParser(description="Prediction for Semantic Segmentation model")
     # Model settings
     parser.add_argument("-m", "--model", type=str, help="Which model to load. If None given, will look for <best> in <results> folder", default=None)
     parser.add_argument("-i", "--input", help="Input. If directory, will look for .png and .JPG files within this directory. If file, will attempt to load file.", type=str)
