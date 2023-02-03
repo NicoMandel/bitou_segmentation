@@ -8,4 +8,9 @@ def is_not_empty(window : np.ndarray, nodata_val : list = [255, 255, 255]) -> bo
     wy = np.equal(img, nodata_val).all(2)
     img[wy] = [0, 0, 0]
     return np.any(img)
-    raise NotImplementedErr
+
+def convert_idx(w_width, w_height, cols, i):
+    start_x = w_width * (i // cols)
+    start_y = w_height * (i % cols)
+    return start_x, start_y
+
