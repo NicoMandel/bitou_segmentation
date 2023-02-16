@@ -8,6 +8,7 @@ import numpy as np
 from tqdm import tqdm
 
 from csupl import dataloader
+from csupl.utils import load_image
 
 fdir = os.path.abspath(os.path.dirname(__file__))
 root = os.path.join(fdir, "..", "data")
@@ -53,3 +54,35 @@ def test_mask_validity():
     
     assert fct > 0
     assert cl_ct == 0
+
+def test_image_loading():
+    imgdir = os.path.join(fdir, "..", "tmp")
+    
+    def test_channel(img : np.ndarray, channel_id : int):
+        assert np.all(img[..., channel_id]) >= 250 
+    
+    def test_channels(img: np.ndarray, channel_1 : int, channel_2 : int):
+        assert img[..., channel_1].all() == 128
+        assert img[..., channel_2].all() == 128 / 2
+
+    r_jpg = load_image(os.path.join(imgdir, "r.jpg"))
+    r_png = load_image(os.path.join(imgdir, "r.png"))
+    test_channel(r_jpg, 0)
+    test_channel(r_png, 0)
+
+    g_jpg = load_image(os.path.join(imgdir, "g.jpg"))
+    g_png = load_image(os.path.join(imgdir, "g.png"))
+    test_channel(g_jpg, 1)
+    test_channel(g_png, 1)
+
+    b_jpg = load_image(os.path.join(imgdir, "b.jpg"))
+    b_png = load_image(os.path.join(imgdir, "b.png"))
+    test_channel(b_jpg, 2)
+    test_channel(b_png, 2)
+
+    mix1 = load_image(os.path.join(imgdir, "mix1.png"))
+    mix2 = load_image(os.path.join(imgdir, "mix2.png"))
+    mix3 = load_image(os.path.join(imgdir, "mix3.png"))
+    test_channels(mix1, 0, 1)
+    test_channels(mix2, 1, 2)
+    test_channels(mix3, 2, 0)
