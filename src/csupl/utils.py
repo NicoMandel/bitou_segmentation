@@ -15,6 +15,9 @@ import torch
 # import torch.nn.functional as F
 from torchvision.transforms import Pad
 import re
+
+ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'PNG', 'JPG', 'GIF', 'JPEG'])
+
 """
     Section on plotting images
 """
@@ -187,11 +190,16 @@ def _calculate_symmetric_difference(old_shape : tuple, nshape : tuple) -> tuple:
 """
     Section on image function
 """
-def get_image_list(dir : Path, f_ext : str = ".JPG") -> list:
+def get_image_list(dir : Path, f_ext : str = None) -> list:
     if isinstance(dir, str):
         dir = Path(dir)
+    if f_ext is None:
+        # use the extension with the most elements
+        imgdict = {ext:len(list(dir.glob("*"+ext))) for ext in ALLOWED_EXTENSIONS}
+        f_ext = max(imgdict, key=imgdict.get)
+        # imgdict = {[x.stem for x in dir.glob("*"+ext) for ext in ALLOWED_EXTENSIONS]}
     img_list = list([x.stem for x in dir.glob("*"+f_ext)])
-    return img_list
+    return img_list, f_ext
 
 def plot_images(img : np.ndarray, mask : np.ndarray, img_name : str, K : int) -> None:
     fig, axs = plt.subplots(1,2)
