@@ -13,7 +13,6 @@ from csupl import dataloader
 from csupl.utils import load_image
 
 
-
 fdir = os.path.abspath(os.path.dirname(__file__))
 root = os.path.join(fdir, "..", "data")
 num_classes = 2
@@ -28,6 +27,9 @@ def check_channel(img : np.ndarray, channel_id : int, value : int = 255):
 def check_channels(img: np.ndarray, channel_1 : int, channel_2 : int, value_1 : int = 128, value_2 : int = 128 /2):
     assert np.all(img[..., channel_1] == value_1)
     assert np.all(img[..., channel_2] == value_2)
+
+def check_channel_mask(img : np.ndarray, mask : np.ndarray) -> bool:
+    return np.all(img[..., int(mask.mean())] == 255)
 
 def test_dataset_length():
     ds = dataloader.BitouDataset(root = root, img_folder = "bitou_test", mask_folder = "bitou_test_masks", f_ext = ".JPG")
@@ -128,3 +130,13 @@ def test_tif_loading():
     with rasterio.open(mix3file, 'r') as src:
         mix3 = src.read()
     check_channels(reshape_as_image(mix3), 2, 0)
+
+def test_dataloader_channels():
+    root = os.path.join(fdir, "test_images")
+    ds = dataloader.BitouDataset(root = root, img_folder = "images", mask_folder = "labels", img_ext = ".png", mask_ext= ".png")
+    for i, img_name in enumerate(ds.img_list):
+        img, mask = ds[i]
+        assert check_channel_mask(img, mask), "Image {} does not have 255 at specified channel. Channel via mask is: {}, Values are: {}".format(
+            img_name, mask.mean(), img[..., int(mask.mean())]
+        )
+
