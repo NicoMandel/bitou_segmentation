@@ -57,7 +57,7 @@ if __name__=="__main__":
     conf_f = args["config"]
 
     # Getting files and algorithm set up
-    img_list = get_image_list(img_directory, in_fext)
+    img_list, in_fext = get_image_list(img_directory, in_fext)
     poly_dict = get_config(conf_f, img_directory)
     overlay = args["overlay"]
     class_idx = args["class"]

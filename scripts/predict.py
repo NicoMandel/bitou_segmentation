@@ -101,12 +101,13 @@ if __name__=="__main__":
     if os.path.isdir(args["input"]):
         # get file list
         print("{} is a directory. Reading all {} files".format(args["input"], args["f_ext"]))
-        img_list = get_image_list(args["input"], args["f_ext"])
+        f_ext = args["f_ext"]
+        img_list, f_ext = get_image_list(args["input"], f_ext)
         print("Found {} {} images. Going through them individually".format(
             len(img_list), args["f_ext"]
         ))
         img_dir = args["input"]
-        f_ext = args["f_ext"]
+       
     else:
         print("{} is an image. Reading image".format(args["input"]))
         img_dir = os.path.dirname(args["input"])

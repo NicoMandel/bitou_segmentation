@@ -73,7 +73,7 @@ if __name__=="__main__":
     check_exist(image_folder)
 
     # check file extensions
-    valid_extensions = set([".jpg", ".png", ".JPG"])
+    valid_extensions = set([".jpg", ".png", ".JPG", ".PNG", ".jpeg", ".JPG"])
     print(f"Valid file extensions are: {valid_extensions}")
     ext_imgs = get_file_extensions(image_folder)
     ext_labels = get_file_extensions(label_folder)
@@ -89,8 +89,8 @@ if __name__=="__main__":
     print(f"Proceeding with image extension: {img_ext}")
     print(f"Proceeding with mask extension: {label_ext}")
     # ensure that there are as many images in <images> as in <data>
-    img_list = get_image_list(image_folder, img_ext)
-    label_list = get_image_list(label_folder, label_ext)
+    img_list, img_ext = get_image_list(image_folder, img_ext)
+    label_list, label_ext = get_image_list(label_folder, label_ext)
     assert len(img_list) == len(label_list), f"{len(img_list)} images and {len(label_list)} masks. Does not match"
     print(f"{len(img_list)} images and {len(label_list)} masks found. Proceeding")
     # check that every image in <labels> has a name correspondence in <images>

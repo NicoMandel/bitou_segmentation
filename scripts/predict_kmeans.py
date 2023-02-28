@@ -99,7 +99,7 @@ if __name__=="__main__":
     # directory settings
     img_dir = Path(args["input"])
     f_ext = args["file_extension"]
-    img_list = get_image_list(img_dir, f_ext=f_ext)
+    img_list, f_ext = get_image_list(img_dir, f_ext=f_ext)
     outdir = args["output"]
 
     overlay = args["overlay"]
