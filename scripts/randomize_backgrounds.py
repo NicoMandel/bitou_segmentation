@@ -17,7 +17,7 @@ def parse_args():
     """
     fdir = path.abspath(path.dirname(__file__))
     
-    parser = ArgumentParser()
+    parser = ArgumentParser(description="File for randomizing masks")
     parser.add_argument("-i", "--input", help="Directory where original images are stored", type=str, required=True)
     parser.add_argument("-r", "--random", help="Directory where random images come from", type=str, required=True)
     parser.add_argument("-l", "--labels", help="Directory where the labels are loaded from", type=str, required=True)
@@ -64,7 +64,7 @@ if __name__=="__main__":
         except OSError: raise
 
 
-    for img_fname in tqdm(img_list):
+    for img_fname in tqdm(img_list,  desc="Samples", leave=True):
         im_path = input_dir / (".".join([img_fname, img_ext]))
         img = load_image(im_path)
         assert img is not None
@@ -82,7 +82,6 @@ if __name__=="__main__":
             assert r_img is not None
 
             out_img = replace_image_values(img, r_img, label, exchange_class)
-            out_img = cv2.cvtColor(out_img, cv2.COLOR_BGR2RGB)
             if args["output"] is None:
                 plot_overlaid(out_img, "+".join([img_fname, str(i), rnd_fname]))
             else:
