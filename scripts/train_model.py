@@ -44,8 +44,10 @@ def parse_args():
     parser.add_argument("--weights", type=str, help="Encoder Weight pretraining to be used. Default is imagenet", default="imagenet")
 
     # Model size settings
-    parser.add_argument("--width", help="Width to be used for training", default=None, type=int)
+    parser.add_argument("--width", help="Width to be used for training", default=512, type=int)
     parser.add_argument("--height", help="Height to be used during training", default=None, type=int)
+    parser.add_argument("--max-size", help="Maximum image size encountered (along the smaller dimension). \
+                        Defaults to None. If None, will not use spatial Pyramid", default=None, type=int)
     
     # Training settings
     parser.add_argument("-b", "--batch", type=int, default=12, help="batch size to be used. Should not exceed memory, depends on Network")
@@ -53,7 +55,7 @@ def parse_args():
     parser.add_argument("-d", "--dev-run", action="store_true", default=False, help="If true, a fast development run is done with 1 batch for train, val and test")
     parser.add_argument("-l", "--limit", default=1.0, type=float, help="%% the training and validation batches to be used. Default is 1.0")
     parser.add_argument("-e", "--epochs", default=25, type=int, help="Maximum epochs, iterations of training. Default is 25")
-    parser.add_argument("--val", type=float, help="Validation Percentage of the training dataset.", default=0.25)
+    parser.add_argument("--val", type=float, help="Validation Percentage of the training dataset. Default is 0.25", default=0.25)
     parser.add_argument("--freeze", action="store_true", help="If set, will freeze the encoder during training")
 
     # Dataset Settings
@@ -88,14 +90,22 @@ def get_shape(height : int = None, width : int = None) -> tuple:
     else:
         return (height, width)
 
-def get_training_transforms(shape : tuple, mean : tuple, std : tuple, p : float=0.5) -> A.Compose:
+def get_training_transforms(max_size : int, shape : tuple, mean : tuple, std : tuple, p : float=0.5) -> A.Compose:
+    if max_size is None:
+        size_tf = A.OneOrOther(
+            # A.RandomSizedCrop((shape[0], 10*shape[0]), shape[0], shape[1], shape[1]/shape[0]),
+            A.RandomCrop(shape[0], shape[1], p=1),
+            A.Resize(shape[0], shape[1], p=1),
+            p=1)
+    else:
+        size_tf =  A.OneOf([
+            A.RandomSizedCrop((shape[0], max_size), shape[0], shape[1], shape[1]/shape[0], p=1),
+            A.RandomCrop(shape[0], shape[1], p=1),
+            A.Resize(shape[0], shape[1], p=1)
+            ], p=1)
     tf_list = [
             # Spatial Transforms
-        A.OneOrOther(
-            A.RandomSizedCrop((shape[0], 10*shape[0]), shape[0], shape[1], shape[1]/shape[0]),
-            A.RandomCrop(shape[0], shape[1]),
-        #     # A.Resize(height, width, p=1)
-            p=p) if shape else None,
+        size_tf,
         # A.RandomCrop(height, width, p=1),
         A.OneOf([
             A.VerticalFlip(p=p),
@@ -177,7 +187,7 @@ if __name__=="__main__":
     # Transform probability
     p = 0.5
     shape = get_shape(args["height"], args["width"])
-    train_aug = get_training_transforms(shape, mean, std, p=p)
+    train_aug = get_training_transforms(args["max_size"], shape, mean, std, p=p)
 
     # lightning - updated way to load the data - with a datamodule. Much simpler
     datamodule = BitouDataModule(
@@ -186,7 +196,7 @@ if __name__=="__main__":
         # num_classes,
         # test_transforms=test_aug,
         img_folder="images",
-        mask_folder="masks",
+        mask_folder="labels",
         train_transforms=train_aug,
         batch_size=args["batch"], 
         num_workers=args["workers"],

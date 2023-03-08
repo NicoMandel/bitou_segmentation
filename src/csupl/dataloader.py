@@ -92,24 +92,25 @@ class BitouDataModule(pl.LightningDataModule):
     # TODO: change this from assigning states (self.x) because it will only be run on one process - use setup.
     # see [here](https://pytorch-lightning.readthedocs.io/en/latest/data/datamodule.html#prepare-data)
     def prepare_data(self):
-            """
-                Same as the SegDataModule loader, but this one uses albumentations
-            """
+        """
+            Same as the SegDataModule loader, but this one uses albumentations
+        """
 
-            self.default_dataset = BitouDataset(self.root_dir, self.train_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder,
-                                                img_ext=self.img_ext, mask_ext=self.mask_ext)
-            
-            # Splitting the dataset
-            dataset_len = len(self.default_dataset)
-            train_part = int( (1-self.val_percentage) * dataset_len)
-            val_part = dataset_len - train_part
+        self.default_dataset = BitouDataset(self.root_dir, self.train_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder,
+                                            img_ext=self.img_ext, mask_ext=self.mask_ext)
+        
 
-            # Actual datasets
-            self.train_dataset, self.val_dataset = random_split(self.default_dataset, [train_part, val_part])
-            
-            # test dataset
-            # testpath = Path(self.root_dir) / self.test_dir
-            # self.test_dataset = BitouDataset(testpath, self.num_classes, self.test_transforms, image_folder=self.img_folder, mask_folder=self.mask_folder)
+        # Splitting the dataset
+        dataset_len = len(self.default_dataset)
+        train_part = int( (1-self.val_percentage) * dataset_len)
+        val_part = dataset_len - train_part
+
+        # Actual datasets
+        self.train_dataset, self.val_dataset = random_split(self.default_dataset, [train_part, val_part])
+    
+        # test dataset
+        # testpath = Path(self.root_dir) / self.test_dir
+        # self.test_dataset = BitouDataset(testpath, self.num_classes, self.test_transforms, image_folder=self.img_folder, mask_folder=self.mask_folder)
 
     # Dataloaders:
     def train_dataloader(self):
