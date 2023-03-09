@@ -34,6 +34,7 @@ from albumentations.pytorch import ToTensorV2
 
 # Logging
 # from pytorch_lightning import loggers as pl_loggers
+import yaml
 
 def parse_args():
     parser = ArgumentParser(description="Training Loop for Semantic Segmentation model")
@@ -154,6 +155,11 @@ def default_args():
     argdict["mask_ext"] = ".png"
     return argdict
 
+def log_experiment(model_name, resdir, **kwargs):
+    res_yml = os.path.join(resdir, model_name + ".yaml")
+    with open(res_yml, 'w') as f:
+        yaml.dump(kwargs, f)    # potentially: default_flow_style=False
+
 if __name__=="__main__":
 
     args = parse_args()
@@ -244,4 +250,21 @@ if __name__=="__main__":
         model.freeze()
         export_fpath = get_model_export_path(args["output"], model)
         trainer.save_checkpoint(export_fpath)
-        print("Saved model to: {}".format(export_fpath))
+        settingsdict = {
+            "loss" : loss,
+            "accuracy" : model.accuracy,
+            "weight decay": weight_decay,
+            "learning rate" : lr,
+            "batch size" : args["batch"],
+            "workers" : args["workers"],
+            "validation percentage" : args["val"],
+            "augmentations" : train_aug,
+            "classes" : classes,
+            "epochs" : args["epochs"],
+            "freeze backbone" : True if args["freeze"] else False,
+            "image shape" : shape,
+            "Max image size" : args["max_size"]
+            }
+        modeln = get_model_name(model)
+        log_experiment(modeln, args["output"], **settingsdict)
+        print("Saved model to: {}. Experiment Setting in corresponging .yaml file".format(export_fpath))
