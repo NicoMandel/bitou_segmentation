@@ -12,22 +12,18 @@ from csupl.model import Model
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
+# json for parsing the config file
+import json
+
 from csupl.utils import load_image, get_colour_decoder, get_image_list, overlay_images, plot_overlaid, write_image, extract_new_size, pad_image, resize_img
+from csupl.generate_masks import get_polygons_from_labels
 
 def parse_args():
-    parser = ArgumentParser(description="Prediction for Semantic Segmentation model")
+    parser = ArgumentParser(description="Proposing polygons for Semantic Segmentation model")
     # Model settings
     parser.add_argument("-m", "--model", type=str, help="Which model to load. If None given, will look for <best> in <results> folder", default=None)
     parser.add_argument("-i", "--input", help="Input. If directory, will look for .png and .JPG files within this directory. If file, will attempt to load file.", type=str, required=True)
-    parser.add_argument("-o", "--output", type=str, help="Output directory. Will use input file name. If none given, will plot result. If already exists, will also plot.", default=None)
-    parser.add_argument("--alpha", help="alpha factor for overlay. If not given, will plot mask.", default=None, type=float)
-    parser.add_argument("--f_ext", help="File extension to use on folder. Defaults to .JPG", type=str, default=".JPG")
-    parser.add_argument("--gpu", action="store_true", help="If set to true, will look for GPU to run inference. Uses CPU otherwise")
-    parser.add_argument("--scale", type=int, help="Scale percentage for the image. If none given will attempt to run the full image size", default=None)
-    # Model size settings
-    # parser.add_argument("--width", help="Width to be used for training", default=512, type=int)
-    # parser.add_argument("--height", help="Height to be used during training", default=512, type=int)
-    
+    # parser.add_argument("-o", "--output", type=str, help="Output name to be used for the file in the input directory.", required=True)    
     args = parser.parse_args()
     return vars(args)
 
@@ -49,6 +45,8 @@ def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, devic
     x = augmentations(image=img)['image'].to(device).unsqueeze(dim=0)
     # x.to(device)
     with torch.no_grad():
+
+        # y_hat = model(x)
         try:
             y_hat = model(x)
         except RuntimeError as e:
@@ -64,11 +62,7 @@ if __name__=="__main__":
     #Setup
     args = parse_args()
     fdir = os.path.abspath(os.path.dirname(__file__))
-    if args["gpu"]:
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    else:
-        device = torch.device('cpu') 
-    cdec = get_colour_decoder()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
 
     # Argument unpacking
     if args["model"] is None:
@@ -93,18 +87,19 @@ if __name__=="__main__":
         ToTensorV2(transpose_mask=True)
     ])
 
-    # check output format.
-    if args["output"] is not None and not os.path.isdir(args["output"]):
-        raise OSError("Output is not a directory. Breaking")
+    # config json file as base file for the format
+    confdir = os.path.join(fdir, '..', 'config')
+    base_json_f = os.path.join(confdir, 'via_base.json')
+    with open(base_json_f, 'r') as json_f:
+        json_dict = json.load(json_f)
     
     # check input format
     if os.path.isdir(args["input"]):
         # get file list
-        print("{} is a directory. Reading all {} files".format(args["input"], args["f_ext"]))
-        f_ext = args["f_ext"]
-        img_list, f_ext = get_image_list(args["input"], f_ext)
+        print("{} is a directory. Reading all files".format(args["input"]))
+        img_list, f_ext = get_image_list(args["input"])
         print("Found {} {} images. Going through them individually".format(
-            len(img_list), args["f_ext"]
+            len(img_list), f_ext
         ))
         img_dir = args["input"]
        
@@ -116,20 +111,21 @@ if __name__=="__main__":
 
     # go through the image list
     for img_f in img_list:
-        fpath = os.path.join(img_dir, (img_f + f_ext))
+        fpath = os.path.join(img_dir, (img_f +"."+ f_ext))
         img = load_image(fpath)
         assert img is not None, "Not an image File, None object. Ensure {} exists".format(fpath)
-        if args['scale'] is not None:
-            img = resize_img(img, args["scale"])
         x = img.copy()
         # model pass
+        # ! with resizing the polygon corners cannot be guaranteed to be in the same places 
+        # make sure that we return the actual RUN inmage and perform inverse normalization
         labels = model_pass(model, x, augmentations, device)
-        mask = cdec(labels)
-        if args["alpha"] is not None:
-            mask = overlay_images(img, mask, alpha=args["alpha"])
-        
-        if args["output"] is None:
-            plot_overlaid(mask, title=img_f)
-        else:
-            write_image(args["output"], img_f, mask)
-            
+
+        # Step 1: identify Polygons
+        out_img = get_polygons_from_labels(img, labels)
+        plot_overlaid(out_img)
+
+        # Step 2: write the polygons into the json dictionary
+
+    # Step 3: write the json file out again
+    # with open(args["output"], "w") as json_f:
+    #     json.dump(json_dict)

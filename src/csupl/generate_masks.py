@@ -18,8 +18,8 @@ def get_config(conf_f : str, img_dir : str) -> dict:
 
 def get_polygon_dict(fpath : str) -> dict:
     fpath = check_path(fpath)
-    json_f = open(fpath, "r")
-    json_dict = json.load(json_f)
+    with open(fpath, "r") as json_f:
+        json_dict = json.load(json_f)
 
     return json_dict["_via_img_metadata"]
 
@@ -57,6 +57,16 @@ def split_polyon_dict(poly_dict : dict) -> tuple:
 
     return pos_dict, neg_list
 
+def get_polygons_from_labels(img : np.ndarray, labels: np.ndarray, label_idx : int = 1) -> np.ndarray:
+    """
+        Function to get polygons from the label output of the network
+    """
+    out_img = img.copy()
+    contours, _  = cv2.findContours(labels, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)    # alternative: cv2.RETR_EXTERNAL in first position
+    for cnt in contours:
+        approx = cv2.approxPolyDP(cnt, 0.009 * cv2.arcLength(cnt, True), True)
+        cv2.drawContours(out_img, [approx], 0, (0, 0, 255), 5)
+    return out_img
 
 def generate_mask_image(mask_img : Image.Image, polygon_coord : list, class_idx : int = 1, whiteout : bool = False) -> Image.Image:
     """
