@@ -39,13 +39,15 @@ def rescale_image(img : torch.Tensor, msg: str) -> torch.Tensor:
 def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, device : torch.device) -> np.ndarray:
     """
         ! model size 100% breaks the GPU memory on my computer ( > 6 GB) -> rescaling image necessary.
+        TODO: could break into a batch of 4 (25%) -> run as one batch, then restitch
         Binary search by hand resulted in **44 %** being the largest possible size. 
         For images of size (5460, 8192) that results in input image of size (2402, 3604) -> padded to (2432, 3616)
     """
-    x = augmentations(image=img)['image'].to(device).unsqueeze(dim=0)
+    x = augmentations(image=img)['image'].to(device)
+    if len(x.shape) == 3:
+        x = x.unsqueeze(dim=0)
     # x.to(device)
     with torch.no_grad():
-
         # y_hat = model(x)
         try:
             y_hat = model(x)
@@ -53,10 +55,44 @@ def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, devic
             nx = rescale_image(x, e)
             # nx.to(device)
             y_hat = model(nx)
-   
     labels = model.get_labels(y_hat)
+
     return labels.cpu().numpy().astype(np.int8)
 
+def too_large(img : np.ndarray) -> bool:
+    return True if (img.shape[0] >= 1024 or img.shape[1] > 1024)  else False
+
+def to_quadrants(img : np.ndarray) -> np.ndarray:
+    """
+        Function to turn an image into a batch from images
+        top left is 0, top right is 1, bottom left is 2, bottom right is 3
+    """
+    half_v = img.shape[0] // 2
+    half_h = img.shape[1] // 2
+    l_t = img[: half_v, :half_h]
+    l_b = img[half_v :, :half_h]
+    r_t = img[: half_v, half_h :]
+    r_b = img[half_v:, half_h : ]
+    nimg = np.zeros((4, half_v, half_h, img.shape[2])).astype(np.uint8)
+    nimg[0,...] = l_t
+    nimg[1, ...] = r_t
+    nimg[2, ...] = l_b
+    nimg[3, ...] = r_b
+    return nimg
+
+def from_quadrants(img : np.ndarray) -> np.ndarray:
+    """
+        Function to return a batch of 4 images into a single image again.
+        top left is 0, top right is 1, bottom left is 2, bottom right is 3
+    """
+    img_h = img.shape[1]
+    img_v = img.shape[2]
+    nimg = np.zeros((img_h * 2, img_v * 2, img.shape[3])).astype(np.uint8)
+    nimg[: img_h, : img_v] = img[0,...]
+    nimg[: img_h, img_v :] = img[1, ...]
+    nimg[img_h:, : img_v] = img[2,...]
+    nimg[img_h:, img_v :] = img[3, ...]
+    return nimg
 
 if __name__=="__main__":
     #Setup
@@ -116,9 +152,11 @@ if __name__=="__main__":
         assert img is not None, "Not an image File, None object. Ensure {} exists".format(fpath)
         x = img.copy()
         # model pass
-        # ! with resizing the polygon corners cannot be guaranteed to be in the same places 
-        # make sure that we return the actual RUN inmage and perform inverse normalization
-        labels = model_pass(model, x, augmentations, device)
+        if too_large(img):
+            #
+            x = to_quadrants(x)
+        else:
+            labels = model_pass(model, x, augmentations, device)
 
         # Step 1: identify Polygons
         out_img = get_polygons_from_labels(img, labels)
