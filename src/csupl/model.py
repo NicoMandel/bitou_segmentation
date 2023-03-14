@@ -73,26 +73,26 @@ class Model(pl.LightningModule):
         raise NotImplementedError("Getting models from smp not yet implemented")
 
     # Decoding the prediction. Model function
-    def get_labels(self, pred : torch.Tensor, detach : bool = False) -> torch.Tensor:
+    def get_labels(self, pred : torch.Tensor, detach : bool = False, threshold : float = 0.5) -> torch.Tensor:
         """
             function to get the labels from the forward pass
             Works for multiclass and binary
             Flag can be set to call detach().cpu().numpy()
         """
         if self.classes == 2:
-            labels = self._get_label_binary(pred)
+            labels = self._get_label_binary(pred, threshold=threshold)
         else:
             labels = self._get_label_multiclass(pred)
         if detach:
             labels = labels.detach().cpu().numpy()
         return labels
 
-    def _get_label_binary(self, pred : torch.Tensor) -> torch.Tensor:
+    def _get_label_binary(self, pred : torch.Tensor, threshold : float = 0.5) -> torch.Tensor:
         """
             Function to return the binary label from a prediction
         """
         prob = pred.sigmoid()
-        cl = (prob > 0.5).float()
+        cl = (prob > threshold).float()
         return cl.squeeze()
     
     def _get_label_multiclass(self, pred : torch.Tensor) -> torch.Tensor:
