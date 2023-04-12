@@ -43,9 +43,19 @@ def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, devic
         Binary search by hand resulted in **44 %** being the largest possible size. 
         For images of size (5460, 8192) that results in input image of size (2402, 3604) -> padded to (2432, 3616)
     """
-    x = augmentations(image=img)['image'].to(device)
-    if len(x.shape) == 3:
+
+    if len(img.shape) == 3:
+        x = augmentations(image=img)['image'].to(device)
         x = x.unsqueeze(dim=0)
+    else:
+        # x = torch.Tensor()
+        for i in range(img.shape[0]):
+            img_i = img[i,...]
+            x_i = augmentations(image=img_i)['image'].to(device)
+            if i == 0:
+                x_shape = tuple([img.shape[0]] + list(x_i.shape))
+                x = torch.empty((x_shape), device=device)
+            x[i,...] = x_i
     # x.to(device)
     with torch.no_grad():
         # y_hat = model(x)
@@ -87,7 +97,9 @@ def from_quadrants(img : np.ndarray) -> np.ndarray:
     """
     img_h = img.shape[1]
     img_v = img.shape[2]
-    nimg = np.zeros((img_h * 2, img_v * 2, img.shape[3])).astype(np.uint8)
+    nimg_shape = [img_h *2, img_v * 2]
+    nimg_sh = nimg_shape if len(img.shape) == 3 else nimg_shape + [img.shape[3]] 
+    nimg = np.zeros(nimg_sh).astype(np.uint8)
     nimg[: img_h, : img_v] = img[0,...]
     nimg[: img_h, img_v :] = img[1, ...]
     nimg[img_h:, : img_v] = img[2,...]
@@ -118,7 +130,6 @@ if __name__=="__main__":
     # height = 512
     # width = 512
     augmentations = A.Compose([
-        # A.Resize(height, width, p=1),
         A.Normalize(mean=mean, std=std),
         ToTensorV2(transpose_mask=True)
     ])
@@ -144,23 +155,28 @@ if __name__=="__main__":
         img_dir = os.path.dirname(args["input"])
         img_list = [str(Path(args["input"]).stem)]
         _, f_ext = os.path.splitext(args["input"])
+    cdec = get_colour_decoder()
 
     # go through the image list
     for img_f in img_list:
-        fpath = os.path.join(img_dir, (img_f +"."+ f_ext))
+        fpath = os.path.join(img_dir, (img_f + f_ext))
         img = load_image(fpath)
         assert img is not None, "Not an image File, None object. Ensure {} exists".format(fpath)
         x = img.copy()
         # model pass
         if too_large(img):
-            #
             x = to_quadrants(x)
+            labels = model_pass(model, x, augmentations, device)
+            labels = from_quadrants(labels)
         else:
             labels = model_pass(model, x, augmentations, device)
 
+        mask = cdec(labels)
+        mask = overlay_images(img, mask, alpha=0.5)
+
         # Step 1: identify Polygons
-        out_img = get_polygons_from_labels(img, labels)
-        plot_overlaid(out_img)
+        # out_img = get_polygons_from_labels(img, labels)
+        plot_overlaid(mask)
 
         # Step 2: write the polygons into the json dictionary
 
