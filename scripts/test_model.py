@@ -15,6 +15,8 @@ import pytorch_lightning as pl
 from csupl.dataloader import BitouDataset, DataLoader
 from csupl.model import Model
 
+from train_model import get_test_transforms, get_shape
+
 # Own imports
 from argparse import ArgumentParser
 
@@ -30,8 +32,8 @@ def parse_args():
     # Model settings
     parser.add_argument("-m", "--model", type=str, help="Which model to choose. Specify path")
     # Model size settings
-    parser.add_argument("-w", "--width", help="Width to be used for image preprocessing", default=512, type=int)
-    parser.add_argument("-h", "--height", help="Height to be used for image preprocessing", default=512, type=int)
+    parser.add_argument("--width", help="Width to be used for image preprocessing", default=512, type=int)
+    parser.add_argument("--height", help="Height to be used for image preprocessing", default=512, type=int)
     
     # Dataloader settings
     parser.add_argument("-b", "--batch", type=int, default=None, help="batch size to be used. Should not exceed memory, depends on Network")
@@ -43,16 +45,6 @@ def parse_args():
     parser.add_argument("--image-ext", type=str, help="Image file extension to be read from the image directory. Defaults to .JPG", default=".JPG")
     args = parser.parse_args()
     return vars(args)
-
-def get_test_transforms(height : int, width : int, mean : tuple, std : tuple) -> A.Compose:
-    test_aug = A.Compose([
-        A.RandomCrop(height, width, p=1),
-        # A.RandomSizedCrop((height, 4*height), height, width, width/height, p=1),
-        # A.Resize(height, width, p=1),
-        A.Normalize(mean=mean, std=std),
-        ToTensorV2(transpose_mask=True)
-    ])
-    return test_aug
 
 def default_args():
     argdict = {}
@@ -86,11 +78,12 @@ if __name__=="__main__":
     preprocess_params = model.get_preprocessing_parameters()
     mean = tuple(preprocess_params['mean'])
     std = tuple(preprocess_params['std'])
-    test_tfs = get_test_transforms(args["height"], args["width"], mean, std)
+    shape = get_shape(args["height"], args["width"])
+    test_tfs = get_test_transforms(shape, mean, std)
     
     # Test directory - own dataloader, not datamodule
-    ds = BitouDataset(args["input"], test_tfs, img_folder="images", mask_folder="masks",
-                        img_ext=args["img_ext"], mask_ext=args["mask_ext"])
+    ds = BitouDataset(args["input"], test_tfs, img_folder="images", mask_folder="labels",
+                        img_ext=args["image_ext"], mask_ext=args["mask_ext"])
     dl = DataLoader(ds, batch_size=args["batch"], num_workers=args["workers"],pin_memory=True)
     
     # Trainer
