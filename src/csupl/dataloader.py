@@ -61,18 +61,18 @@ class BitouDataset(VisionDataset):
 class BitouDataModule(pl.LightningDataModule):
 
     def __init__(self, root : str,
-                # test_dir : str,
+                test_dir : str,
                 num_workers : int = 1, batch_size : int = 4, val_percentage : float = 0.25,
                 img_folder : str = "bitou_test", mask_folder : str = "bitou_test_masks",
                 train_transforms: Optional[Callable] = None,
-                img_ext : str = ".JPG", mask_ext : str = ".png"
-                # test_transforms: Optional[Callable] = None
+                img_ext : str = ".JPG", mask_ext : str = ".png",
+                test_transforms: Optional[Callable] = None
                 ) -> None:
         super().__init__()
         
         # folder structure
         self.root_dir = root
-        # self.test_dir = test_dir
+        self.test_dir = test_dir
         self.img_folder = img_folder
         self.mask_folder = mask_folder
         
@@ -83,7 +83,7 @@ class BitouDataModule(pl.LightningDataModule):
         
         # Transforms
         self.train_transforms = train_transforms
-        # self.test_transforms = test_transforms
+        self.test_transforms = test_transforms
 
         # File extensions
         self.img_ext = img_ext
@@ -99,7 +99,6 @@ class BitouDataModule(pl.LightningDataModule):
         self.default_dataset = BitouDataset(self.root_dir, self.train_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder,
                                             img_ext=self.img_ext, mask_ext=self.mask_ext)
         
-
         # Splitting the dataset
         dataset_len = len(self.default_dataset)
         train_part = int( (1-self.val_percentage) * dataset_len)
@@ -109,8 +108,9 @@ class BitouDataModule(pl.LightningDataModule):
         self.train_dataset, self.val_dataset = random_split(self.default_dataset, [train_part, val_part])
     
         # test dataset
-        # testpath = Path(self.root_dir) / self.test_dir
-        # self.test_dataset = BitouDataset(testpath, self.num_classes, self.test_transforms, image_folder=self.img_folder, mask_folder=self.mask_folder)
+        testpath = Path(self.root_dir) / self.test_dir
+        self.test_dataset = BitouDataset(testpath, self.test_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder,
+                                    img_ext=".jpg", mask_ext=self.mask_ext)
 
     # Dataloaders:
     def train_dataloader(self):
@@ -125,9 +125,11 @@ class BitouDataModule(pl.LightningDataModule):
         )
         return dl
     
-    # def test_dataloader(self):
-        # dl = DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True)
-        # return dl
+    def test_dataloader(self):
+        dl = DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers,
+        pin_memory=True
+        )
+        return dl
 
 #################################
 # Secondary Datasets

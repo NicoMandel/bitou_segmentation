@@ -135,6 +135,21 @@ def get_training_transforms(max_size : int, shape : tuple, mean : tuple, std : t
     tfs = A.Compose([tf for tf in tf_list if tf is not None])
     return tfs
 
+def get_test_transforms(shape : tuple, mean : tuple, std : tuple) -> A.Compose:
+    """
+        Test Tranforms. Only:
+            * Cropping
+            * Normalization
+            * ToTensor
+    """
+    test_tfs = A.Compose([
+        A.RandomCrop(shape[0], shape[1], p=1),
+        A.Normalize(mean=mean, std=std),
+        ToTensorV2(transpose_mask=True)
+    ])
+    return test_tfs
+
+
 def default_args():
     argdict = {}
     argdict["classes"] = 3
@@ -177,7 +192,7 @@ if __name__=="__main__":
     # See paper - focal loss focusses on hard examples - so that these become weighted higher during training
     # loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
     # loss = sgm.losses.FocalLoss(loss_mode)
-    loss = sgm.losses.TverskyLoss(alpha=0.2, beta=0.8, mode=loss_mode)
+    loss = sgm.losses.TverskyLoss(alpha=0.5, beta=0.5, mode=loss_mode)
     # Task parameters - depending on the training settings    
     lr = 1.0e-3
     weight_decay = 1.0e-4
@@ -194,13 +209,14 @@ if __name__=="__main__":
     p = 0.5
     shape = get_shape(args["height"], args["width"])
     train_aug = get_training_transforms(args["max_size"], shape, mean, std, p=p)
+    test_transforms = get_test_transforms(shape, mean=mean, std=std)
 
     # lightning - updated way to load the data - with a datamodule. Much simpler
     datamodule = BitouDataModule(
-        args["input"],
-        # "Test",
+        root = args["input"],
+        test_dir = "test",
         # num_classes,
-        # test_transforms=test_aug,
+        test_transforms=test_transforms,
         img_folder="images",
         mask_folder="labels",
         train_transforms=train_aug,
@@ -244,6 +260,9 @@ if __name__=="__main__":
     if args["freeze"]:
         model.freeze_encoder()
     trainer.fit(model, datamodule=datamodule)
+
+    # Test step
+    trainer.test(model,datamodule=datamodule)
 
     # Exporting the model
     if args["output"] is not None:

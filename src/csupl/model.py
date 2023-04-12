@@ -137,8 +137,9 @@ class Model(pl.LightningModule):
         x, y = batch
         # similar to simple forward step
         pred = self._shared_step(x)
+        pred_cl = self.get_labels(pred)
         # Accuracy
-        acc = self.accuracy(pred, y)
+        acc = self.accuracy(pred_cl, y)
 
         self.log_dict({'acc/test': acc}, prog_bar=True, logger=True)
         return {'test_acc': acc, 'out': pred, 'in': x, 'truth': y}
