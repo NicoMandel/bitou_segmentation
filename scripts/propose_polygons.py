@@ -15,8 +15,10 @@ from albumentations.pytorch import ToTensorV2
 # json for parsing the config file
 import json
 
-from csupl.utils import load_image, get_colour_decoder, get_image_list, overlay_images, plot_overlaid, write_image, extract_new_size, pad_image, resize_img
+from csupl.utils import load_image, get_colour_decoder, get_image_list, overlay_images, plot_overlaid, write_image, extract_new_size, pad_image, resize_img, plot_images
 from csupl.generate_masks import get_polygons_from_labels
+
+import cv2
 
 def parse_args():
     parser = ArgumentParser(description="Proposing polygons for Semantic Segmentation model")
@@ -35,6 +37,19 @@ def rescale_image(img : torch.Tensor, msg: str) -> torch.Tensor:
     nimg = pad_image(img, nshape)
     return nimg
 
+
+def get_cnts(cnts):
+    """
+        utility function based on the fucking pyimagesearch thing because OpenCV has changed their shitty interface. Mofos
+        https://github.com/PyImageSearch/imutils/blob/master/imutils/convenience.py#L154
+    """
+    if len(cnts) == 2:
+        cnts = cnts[0]
+    elif len(cnts) == 3:
+        cnts = cnts[1]
+    else: raise ValueError("Some shit happened to OpenCV. Good luck")
+    return cnts
+    
 
 def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, device : torch.device) -> np.ndarray:
     """
@@ -70,7 +85,7 @@ def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, devic
     return labels.cpu().numpy().astype(np.int8)
 
 def too_large(img : np.ndarray) -> bool:
-    return True if (img.shape[0] >= 1024 or img.shape[1] > 1024)  else False
+    return True if (img.shape[0] > 1024 or img.shape[1] > 1024)  else False
 
 def to_quadrants(img : np.ndarray) -> np.ndarray:
     """
@@ -171,12 +186,26 @@ if __name__=="__main__":
         else:
             labels = model_pass(model, x, augmentations, device)
 
+        # turn the labels into a binary image
+        bin_img = np.copy(labels).astype(np.uint8)
+        # bin_img -= 1 # turn to maximum value - alternative: bin_img -= 1 -> should turn 0 into 255 and 1 into 0
+
+        cnts, hierarchy = cv2.findContours(bin_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # cnts = get_cnts(cnts)
+
+        drawing = img.copy().astype(np.uint8)
+        col = (255, 0, 0)
+        for i in range(len(cnts)):
+            cv2.drawContours(drawing, cnts, -1, col, 3) #, cv2.LINE_8, hierarchy, 0)
+        plot_images(img, drawing, "", "")
+        # cv2.imshow("Contours", drawing)
+        # 
         mask = cdec(labels)
         mask = overlay_images(img, mask, alpha=0.5)
 
         # Step 1: identify Polygons
         # out_img = get_polygons_from_labels(img, labels)
-        plot_overlaid(mask)
+        # plot_overlaid(mask)
 
         # Step 2: write the polygons into the json dictionary
 
