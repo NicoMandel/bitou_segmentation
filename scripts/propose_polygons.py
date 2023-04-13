@@ -17,6 +17,7 @@ import json
 
 from csupl.utils import load_image, get_colour_decoder, get_image_list, overlay_images, plot_overlaid, write_image, extract_new_size, pad_image, resize_img, plot_images
 from csupl.generate_masks import get_polygons_from_labels
+import os
 
 import cv2
 
@@ -121,6 +122,45 @@ def from_quadrants(img : np.ndarray) -> np.ndarray:
     nimg[img_h:, img_v :] = img[3, ...]
     return nimg
 
+def get_regions(cnts : np.ndarray) -> list:
+
+    rglist = []
+    for rg in cnts:
+        rg = rg.squeeze()
+        if len(rg.shape) >= 2:
+            rg_x, rg_y = get_region(rg)
+            region = {
+                "name" : "polygon",
+                "all_points_x" : rg_x,
+                "all_points_y" : rg_y,
+            }
+            rgdict = {
+                "shape_attributes" : region,
+                "region_attributes": {"plant" : "bitou_bush"}
+                }
+            rglist.append(rgdict)
+    return rglist
+
+def get_region(rg : np.ndarray) -> tuple:
+    rg_x = rg[:,0]
+    rg_y = rg[:,1]
+    assert len(rg_x) == len(rg_y), "Not same size, cannot be right indexing"
+    return rg_x, rg_y
+
+def get_image_dict(img_f, img_fname, cnts : np.ndarray ) -> tuple:
+    sz = os.stat(img_f).st_size
+    # TODO: change cnts here 
+    img_id = img_fname + str(sz)
+    regs = get_regions(cnts)
+    img_dict = {
+        "filename" : img_fname,
+        "size" : sz,
+        "regions" : regs,
+        "file_attributes" : {}
+    }
+
+    return img_id, img_dict 
+
 if __name__=="__main__":
     #Setup
     args = parse_args()
@@ -196,9 +236,20 @@ if __name__=="__main__":
         drawing = img.copy().astype(np.uint8)
         col = (255, 0, 0)
         for i in range(len(cnts)):
+            # epsilon = 0.1*cv2.arcLength(cnts[i], True)
+            # epsilon = 0.0010
+            # approx = cv2.approxPolyDP(cnts[i], epsilon, True)
             cv2.drawContours(drawing, cnts, -1, col, 3) #, cv2.LINE_8, hierarchy, 0)
-        plot_images(img, drawing, "", "")
+        # plot_images(img, drawing, "", "")
         # cv2.imshow("Contours", drawing)
+
+        # cnts now contains the polygons
+        print("test line. From here insert into the json_dict")
+        img_id, img_dict = get_image_dict(fpath, img_f + f_ext, cnts)
+
+        insert_into_dict(json_dict, img_id, img_dict)
+
+        write_dict(json_dict)
         # 
         mask = cdec(labels)
         mask = overlay_images(img, mask, alpha=0.5)
