@@ -142,8 +142,8 @@ def get_regions(cnts : np.ndarray) -> list:
     return rglist
 
 def get_region(rg : np.ndarray) -> tuple:
-    rg_x = rg[:,0]
-    rg_y = rg[:,1]
+    rg_x = rg[:,0].tolist()
+    rg_y = rg[:,1].tolist()
     assert len(rg_x) == len(rg_y), "Not same size, cannot be right indexing"
     return rg_x, rg_y
 
@@ -160,6 +160,23 @@ def get_image_dict(img_f, img_fname, cnts : np.ndarray ) -> tuple:
     }
 
     return img_id, img_dict 
+
+def insert_into_dict(json_dict : dict, img_id : str, img_dict : dict) -> dict:
+    # add the image to the number of images 
+    imglist = json_dict["_via_image_id_list"]
+    imglist.append(img_id)
+    json_dict["_via_image_id_list"] = imglist
+    curr_imgs = json_dict["_via_img_metadata"]
+    curr_imgs[img_id] = img_dict
+    json_dict["_via_img_metadata"] = curr_imgs      # in-place addition
+    # return json_dict
+
+def write_dict(json_dict : dict, out_file : str): 
+    """
+        writing dictionary into file
+    """
+    with open(out_file, 'w') as fp:
+        json.dump(json_dict, fp)
 
 if __name__=="__main__":
     #Setup
@@ -249,7 +266,7 @@ if __name__=="__main__":
 
         insert_into_dict(json_dict, img_id, img_dict)
 
-        write_dict(json_dict)
+        write_dict(json_dict, 'test_out.json')
         # 
         mask = cdec(labels)
         mask = overlay_images(img, mask, alpha=0.5)
