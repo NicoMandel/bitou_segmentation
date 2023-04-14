@@ -26,7 +26,8 @@ def parse_args():
     # Model settings
     parser.add_argument("-m", "--model", type=str, help="Which model to load. If None given, will look for <best> in <results> folder", default=None)
     parser.add_argument("-i", "--input", help="Input. If directory, will look for .png and .JPG files within this directory. If file, will attempt to load file.", type=str, required=True)
-    # parser.add_argument("-o", "--output", type=str, help="Output name to be used for the file in the input directory.", required=True)    
+    parser.add_argument("-o", "--output", type=str, default=None, help="Output name to be used for the file in the input directory. If not given, will plot image with polygons")    
+    parser.add_argument("-p", "--param", type=int, default=20, help="Number of pixels under which to remove polygons. default is 20")
     args = parser.parse_args()
     return vars(args)
 
@@ -126,19 +127,19 @@ def get_regions(cnts : np.ndarray) -> list:
 
     rglist = []
     for rg in cnts:
-        rg = rg.squeeze()
-        if len(rg.shape) >= 2:
-            rg_x, rg_y = get_region(rg)
-            region = {
-                "name" : "polygon",
-                "all_points_x" : rg_x,
-                "all_points_y" : rg_y,
+        # rg = rg.squeeze()
+        # if len(rg.shape) >= 2:
+        rg_x, rg_y = get_region(rg)
+        region = {
+            "name" : "polygon",
+            "all_points_x" : rg_x,
+            "all_points_y" : rg_y,
+        }
+        rgdict = {
+            "shape_attributes" : region,
+            "region_attributes": {"plant" : "bitou_bush"}
             }
-            rgdict = {
-                "shape_attributes" : region,
-                "region_attributes": {"plant" : "bitou_bush"}
-                }
-            rglist.append(rgdict)
+        rglist.append(rgdict)
     return rglist
 
 def get_region(rg : np.ndarray) -> tuple:
@@ -149,7 +150,6 @@ def get_region(rg : np.ndarray) -> tuple:
 
 def get_image_dict(img_f, img_fname, cnts : np.ndarray ) -> tuple:
     sz = os.stat(img_f).st_size
-    # TODO: change cnts here 
     img_id = img_fname + str(sz)
     regs = get_regions(cnts)
     img_dict = {
@@ -177,6 +177,35 @@ def write_dict(json_dict : dict, out_file : str):
     """
     with open(out_file, 'w') as fp:
         json.dump(json_dict, fp)
+
+def get_polygons_from_binary(bin_img: np.ndarray, param : tuple) -> np.ndarray:
+    """
+        function to get polygons from the binary image.
+        Playing around with settings to show polygons
+        TODO: consider using RETR_CCOMP as a setting - to get polygons inside polygons: https://docs.opencv.org/4.x/d9/d8b/tutorial_py_contours_hierarchy.html
+    """
+    # cleaning - use Gaussian filter
+
+    # use polygon approximation? 
+
+    # base function
+    cnts, hierarchy = cv2.findContours(bin_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) # cv2.RETR_TREE
+    
+    n_cts = [cnt for cnt in cnts if not is_too_small(cnt, param)]
+
+    return n_cts
+
+def is_too_small(cnt : np.ndarray, param : tuple) -> bool:
+    """
+        function to check if a polygon is too small by checking the extent along x and y
+    """
+    rg = cnt.squeeze()
+    if len(rg.shape) >= 2:
+        d_x = rg[:,0].max() - rg[:,0].min()
+        d_y = rg[:,1].max() - rg[:,1].min()
+    else:
+        return True
+    return True if (d_x < param[0] and d_y < param[1]) else False 
 
 if __name__=="__main__":
     #Setup
@@ -221,14 +250,17 @@ if __name__=="__main__":
             len(img_list), f_ext
         ))
         img_dir = args["input"]
-       
+    
     else:
         print("{} is an image. Reading image".format(args["input"]))
         img_dir = os.path.dirname(args["input"])
         img_list = [str(Path(args["input"]).stem)]
         _, f_ext = os.path.splitext(args["input"])
-    cdec = get_colour_decoder()
 
+    px_threshold = (args["param"], args["param"])
+    out = args["output"]
+    if out is None:
+        cdec = get_colour_decoder()
     # go through the image list
     for img_f in img_list:
         fpath = os.path.join(img_dir, (img_f + f_ext))
@@ -246,30 +278,27 @@ if __name__=="__main__":
         # turn the labels into a binary image
         bin_img = np.copy(labels).astype(np.uint8)
         # bin_img -= 1 # turn to maximum value - alternative: bin_img -= 1 -> should turn 0 into 255 and 1 into 0
-
-        cnts, hierarchy = cv2.findContours(bin_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = get_polygons_from_binary(bin_img, param=px_threshold)
         # cnts = get_cnts(cnts)
+        
+        if out:
+            img_id, img_dict = get_image_dict(fpath, img_f + f_ext, cnts)
 
-        drawing = img.copy().astype(np.uint8)
-        col = (255, 0, 0)
-        for i in range(len(cnts)):
-            # epsilon = 0.1*cv2.arcLength(cnts[i], True)
-            # epsilon = 0.0010
-            # approx = cv2.approxPolyDP(cnts[i], epsilon, True)
-            cv2.drawContours(drawing, cnts, -1, col, 3) #, cv2.LINE_8, hierarchy, 0)
-        # plot_images(img, drawing, "", "")
-        # cv2.imshow("Contours", drawing)
+            insert_into_dict(json_dict, img_id, img_dict)
 
-        # cnts now contains the polygons
-        print("test line. From here insert into the json_dict")
-        img_id, img_dict = get_image_dict(fpath, img_f + f_ext, cnts)
+        
+        else:
+            # plot
+            drawing = img.copy().astype(np.uint8)
+            col = (255, 0, 0)
+            for i in range(len(cnts)):
+                cv2.drawContours(drawing, cnts, -1, col, 3) #, cv2.LINE_8, hierarchy, 0)
+            mask = cdec(labels)
+            mask = overlay_images(img, mask, alpha=0.5)
+            plot_images(mask, drawing, "", "")
 
-        insert_into_dict(json_dict, img_id, img_dict)
-
-        write_dict(json_dict, 'test_out.json')
-        # 
-        mask = cdec(labels)
-        mask = overlay_images(img, mask, alpha=0.5)
+    if out:
+        write_dict(json_dict, out)
 
         # Step 1: identify Polygons
         # out_img = get_polygons_from_labels(img, labels)
