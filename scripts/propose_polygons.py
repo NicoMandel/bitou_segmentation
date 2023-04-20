@@ -28,6 +28,9 @@ def parse_args():
     parser.add_argument("-i", "--input", help="Input. If directory, will look for .png and .JPG files within this directory. If file, will attempt to load file.", type=str, required=True)
     parser.add_argument("-o", "--output", type=str, default=None, help="Output name to be used for the file in the input directory. If not given, will plot image with polygons")    
     parser.add_argument("-p", "--param", type=int, default=20, help="Number of pixels under which to remove polygons. default is 20")
+    parser.add_argument("--shape", type=int, default=512, help="model shape to be used during inference. Should be larger (a multiple of) training. Defaults to 512")
+    parser.add_argument("--halo", type=int, default=256, help="halo to be used by the model during inference. Defaults to 256, but could be as small as 128")
+    parser.add_argument("--batch", type=int, default=6, help="Batch Size for GPU inference. Defaults to 6")
     args = parser.parse_args()
     return vars(args)
 
@@ -85,6 +88,13 @@ def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, devic
     labels = model.get_labels(y_hat)
 
     return labels.cpu().numpy().astype(np.int8)
+
+def model_pass_reduced(model : Model, x : np.ndarray, augmentations : A.Compose, device : torch.device) -> np.ndarray:
+    x_i = augmentations(image=x)['image'].to(device)
+    with torch.no_grad():
+        y_hat = model(x_i)
+    labels = model.get_labels(y_hat)
+    return labels.cpu().numpy().astype(np.uint8)
 
 def too_large(img : np.ndarray) -> bool:
     return True if (img.shape[0] > 1024 or img.shape[1] > 1024)  else False
@@ -207,6 +217,67 @@ def is_too_small(cnt : np.ndarray, param : tuple) -> bool:
         return True
     return True if (d_x < param[0] and d_y < param[1]) else False 
 
+# Tiling functions
+def get_tile_numbers(img_shape : tuple, model_shape : tuple) -> tuple:
+    """
+        Function to get the number of tiles that should be used.
+        model_width and height are required, as well as the halo that should be added.
+    """
+    model_h = model_shape[0]
+    model_w = model_shape[1]
+    
+    h = img_shape[0]
+    w = img_shape[1]
+
+    leftover_x = w % model_w
+    leftover_y = h % model_h
+
+    # n times the image for the width
+    n_x = w // model_w if leftover_x == 0 else (w // model_w) +1
+    n_y = h // model_h if leftover_y == 0 else (h // model_h) +1
+
+    return n_x, n_y
+
+def get_padding(img_shape : tuple, model_shape : tuple, halo : int = 256) -> tuple:
+    """
+        function to get the padding in the format:
+        pad_left, pad_right, pad_top, pad_bottom
+        the img_shape and model_shape indices hav to coincide
+    """
+    model_h = model_shape[0]
+    model_w = model_shape[1]
+
+    h = img_shape[0]
+    w = img_shape[1]
+
+    leftover_x = w % model_w
+    leftover_y = h % model_h
+    extra_x = model_w - leftover_x
+    extra_y = model_h - leftover_y
+    
+    pad_left = int(halo)
+    pad_right = int(extra_x + halo)
+    pad_top = int(halo)
+    pad_bottom = int(extra_y + halo)
+
+    return pad_left, pad_right, pad_top, pad_bottom
+
+def get_window_dims(model_shape : tuple, halo : int = 256) -> tuple:
+    """
+        Function to get the dimensions of the window
+    """
+    return model_shape[0] + 2*halo, model_shape[1] + 2*halo 
+
+def get_stride(model_shape : tuple) -> tuple:
+    """
+        Function to get the stride of each dimension
+    """
+    return model_shape
+
+def pad_image(img : np.ndarray, pad_top : int, pad_left : int, pad_right : int, pad_bottom : int) -> np.ndarray:
+    padded = cv2.copyMakeBorder(img, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_REFLECT) # BORDER_REPLICATE, BORDER_REFLECT_101, BORDER_WRAP
+    return padded
+
 if __name__=="__main__":
     #Setup
     args = parse_args()
@@ -228,12 +299,17 @@ if __name__=="__main__":
     preprocess_params = model.get_preprocessing_parameters()
     mean = tuple(preprocess_params['mean'])
     std = tuple(preprocess_params['std'])
-    # height = 512
-    # width = 512
     augmentations = A.Compose([
         A.Normalize(mean=mean, std=std),
         ToTensorV2(transpose_mask=True)
     ])
+
+    # Settings for tiling the image
+    model_shape = (args["shape"], args["shape"])
+    halo = args["halo"]
+    window_shape = get_window_dims(model_shape, halo)
+    stride = get_stride(model_shape)
+    batch_size = args["batch"]
 
     # config json file as base file for the format
     confdir = os.path.join(fdir, '..', 'config')
@@ -267,8 +343,39 @@ if __name__=="__main__":
         img = load_image(fpath)
         assert img is not None, "Not an image File, None object. Ensure {} exists".format(fpath)
         x = img.copy()
+
+        # insert here
         # model pass
         if too_large(img):
+            # calculate number of tiles
+            img_shape = img.shape[:-1]
+            out_labels = np.zeros(img_shape, dtype=np.uint8)
+            pad_left, pad_right, pad_top, pad_bottom = get_padding(img_shape, model_shape, halo)
+            n_x, n_y = get_tile_numbers(img_shape, model_shape)
+            padded = pad_image(img, pad_top, pad_left, pad_right, pad_bottom)
+            ctr = 0
+            in_batch_size = [batch_size, 3] + list(window_shape)
+            in_batch = np.zeros(tuple(in_batch_size), dtype=np.uint8)
+            out_loc = np.zeros((batch_size,2))
+            for j in range(n_y):
+                y_window = j * stride[0]
+                y = halo + j * stride[0]
+    
+                for i in range(n_x):
+                    x_window = i * stride[1]  
+                    x = halo + i * stride[1]
+
+                    # get the **window** out and insert it into the batch
+                    window = padded[x_window : x_window+window_shape[1], y_window : y_window+window_shape[1]]
+                    in_batch[ctr%batch_size,...] = window
+                    out_loc[ctr%batch_size] = np.asarray((x,y))
+                    ctr +=1
+                    if (ctr % batch_size == 0):
+                        labels_batch = model_pass_reduced(model, in_batch, augmentations, device)
+                        # TODO: use 1-D indexing to calculate the index
+                        # should be something around (ctr %n_x) * stride[0] = x_loc, (ctr//n_x) * stride[1] = y_loc
+                        #! have to be careful with overhanging image if not fully divisible
+                        
             x = to_quadrants(x)
             labels = model_pass(model, x, augmentations, device)
             labels = from_quadrants(labels)
