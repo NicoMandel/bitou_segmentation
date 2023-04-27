@@ -28,8 +28,8 @@ def parse_args():
     parser.add_argument("-i", "--input", help="Input. If directory, will look for .png and .JPG files within this directory. If file, will attempt to load file.", type=str, required=True)
     parser.add_argument("-o", "--output", type=str, default=None, help="Output name to be used for the file in the input directory. If not given, will plot image with polygons")    
     parser.add_argument("-p", "--param", type=int, default=20, help="Number of pixels under which to remove polygons. default is 20")
-    parser.add_argument("--shape", type=int, default=512, help="model shape to be used during inference. Should be larger (a multiple of) training. Defaults to 512")
-    parser.add_argument("--halo", type=int, default=256, help="halo to be used by the model during inference. Defaults to 256, but could be as small as 128")
+    parser.add_argument("--shape", type=int, default=256, help="model shape to be used during inference. Should be larger (a multiple of) training. Defaults to 512")
+    parser.add_argument("--halo", type=int, default=128, help="halo to be used by the model during inference. Defaults to 256, but could be as small as 128")
     parser.add_argument("--batch", type=int, default=6, help="Batch Size for GPU inference. Defaults to 6")
     args = parser.parse_args()
     return vars(args)
@@ -89,10 +89,17 @@ def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, devic
 
     return labels.cpu().numpy().astype(np.int8)
 
-def model_pass_reduced(model : Model, x : np.ndarray, augmentations : A.Compose, device : torch.device) -> np.ndarray:
-    x_i = augmentations(image=x)['image'].to(device)
+def model_pass_reduced(model : Model, img_batch : np.ndarray, augmentations : A.Compose, device : torch.device) -> np.ndarray:
+    for idx in range(img_batch.shape[0]):
+        img_i = img_batch[idx,...]
+        x_i = augmentations(image=img_i)['image'].to(device)
+        if idx == 0:
+            x_shape = tuple([img_batch.shape[0]] + list(x_i.shape))
+            x = torch.empty((x_shape), device=device)
+        x[idx,...] = x_i
+    # x_i = augmentations(image=x)['image'].to(device)
     with torch.no_grad():
-        y_hat = model(x_i)
+        y_hat = model(x)
     labels = model.get_labels(y_hat)
     return labels.cpu().numpy().astype(np.uint8)
 
@@ -221,7 +228,7 @@ def is_too_small(cnt : np.ndarray, param : tuple) -> bool:
 def get_tile_numbers(img_shape : tuple, model_shape : tuple) -> tuple:
     """
         Function to get the number of tiles that should be used.
-        model_width and height are required, as well as the halo that should be added.
+        model_width and height are required
     """
     model_h = model_shape[0]
     model_w = model_shape[1]
@@ -229,14 +236,14 @@ def get_tile_numbers(img_shape : tuple, model_shape : tuple) -> tuple:
     h = img_shape[0]
     w = img_shape[1]
 
-    leftover_x = w % model_w
-    leftover_y = h % model_h
+    leftover_w = w % model_w
+    leftover_h = h % model_h
 
     # n times the image for the width
-    n_x = w // model_w if leftover_x == 0 else (w // model_w) +1
-    n_y = h // model_h if leftover_y == 0 else (h // model_h) +1
+    n_w = w // model_w if leftover_w == 0 else (w // model_w) +1
+    n_h = h // model_h if leftover_h == 0 else (h // model_h) +1
 
-    return n_x, n_y
+    return n_w * n_h, n_h
 
 def get_padding(img_shape : tuple, model_shape : tuple, halo : int = 256) -> tuple:
     """
@@ -250,10 +257,10 @@ def get_padding(img_shape : tuple, model_shape : tuple, halo : int = 256) -> tup
     h = img_shape[0]
     w = img_shape[1]
 
-    leftover_x = w % model_w
-    leftover_y = h % model_h
-    extra_x = model_w - leftover_x
-    extra_y = model_h - leftover_y
+    leftover_w = w % model_w
+    leftover_h = h % model_h
+    extra_x = model_w - leftover_w
+    extra_y = model_h - leftover_h
     
     pad_left = int(halo)
     pad_right = int(extra_x + halo)
@@ -277,6 +284,19 @@ def get_stride(model_shape : tuple) -> tuple:
 def pad_image(img : np.ndarray, pad_top : int, pad_left : int, pad_right : int, pad_bottom : int) -> np.ndarray:
     padded = cv2.copyMakeBorder(img, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_REFLECT) # BORDER_REPLICATE, BORDER_REFLECT_101, BORDER_WRAP
     return padded
+
+def get_out_shape(n_tot : int, n_w : int, model_shape : tuple) -> tuple:
+    """
+        get the shape of the image output - depends on n_x and n_y
+    """
+    n_h = int(n_tot / n_w)
+    return (n_h * model_shape[0], n_w * model_shape[1])
+
+def get_final_image(out_img : np.ndarray, img_shape : tuple) -> np.ndarray:
+    """
+        Get the final image from the oversized overhanging image
+    """
+    return out_img[:img_shape[0], :img_shape[1]]
 
 if __name__=="__main__":
     #Setup
@@ -349,36 +369,89 @@ if __name__=="__main__":
         if too_large(img):
             # calculate number of tiles
             img_shape = img.shape[:-1]
-            out_labels = np.zeros(img_shape, dtype=np.uint8)
-            pad_left, pad_right, pad_top, pad_bottom = get_padding(img_shape, model_shape, halo)
-            n_x, n_y = get_tile_numbers(img_shape, model_shape)
-            padded = pad_image(img, pad_top, pad_left, pad_right, pad_bottom)
-            ctr = 0
-            in_batch_size = [batch_size, 3] + list(window_shape)
-            in_batch = np.zeros(tuple(in_batch_size), dtype=np.uint8)
-            out_loc = np.zeros((batch_size,2))
-            for j in range(n_y):
-                y_window = j * stride[0]
-                y = halo + j * stride[0]
-    
-                for i in range(n_x):
-                    x_window = i * stride[1]  
-                    x = halo + i * stride[1]
 
-                    # get the **window** out and insert it into the batch
-                    window = padded[x_window : x_window+window_shape[1], y_window : y_window+window_shape[1]]
-                    in_batch[ctr%batch_size,...] = window
-                    out_loc[ctr%batch_size] = np.asarray((x,y))
-                    ctr +=1
-                    if (ctr % batch_size == 0):
-                        labels_batch = model_pass_reduced(model, in_batch, augmentations, device)
-                        # TODO: use 1-D indexing to calculate the index
-                        # should be something around (ctr %n_x) * stride[0] = x_loc, (ctr//n_x) * stride[1] = y_loc
-                        #! have to be careful with overhanging image if not fully divisible
+            pad_left, pad_right, pad_top, pad_bottom = get_padding(img_shape, model_shape, halo)
+            n_tot, n_w  = get_tile_numbers(img_shape, model_shape)
+            out_img_shape = get_out_shape(n_tot, n_w, model_shape)
+            out_labels = np.zeros(out_img_shape, dtype=np.uint8)        
+            padded = pad_image(img, pad_top, pad_left, pad_right, pad_bottom)
+            in_batch_size = [batch_size] + list(window_shape) + [3]
+            in_batch = np.zeros(tuple(in_batch_size), dtype=np.uint8)
+            # ! np indexing: rows, cols := h, w
+            for k in range(n_tot):
+                # ! i is rows (h), j is columns (w)
+                i = k // n_w
+                j = k % n_w
+
+                # l is the index in the batch
+                l = k % batch_size
+                
+                # window locations
+                h_window = i * stride[0]
+                w_window = j * stride[1]
+
+                # take the window
+                window = padded[h_window : h_window + window_shape[0], w_window : w_window + window_shape[1]]
+                # insert it into the batch
+                in_batch[l, ...] = window
+
+                # when the batch is ready 
+                # TODO: set a flag when the batch is full or when the end is reached to pass the model
+                # TODO: then get back the result. Make the for loop inside a model depending on the batch size
+                # ! create the in_batch dynamically. and include the FUCKING k == n_tot -1 in the condition
+                # ! turn into a dictionary mode?
+                if (k and (l == 0)):
+                    labels_batch = model_pass_reduced(model, in_batch, augmentations, device)
+                    for m in range(batch_size):
+                        #! these are not calculated right
+                        n = k - m
+                        ii = n // n_w
+                        jj = n % n_w
+                        h_insert = ii * stride[0]
+                        w_insert = jj * stride[1]
+                        # calculate the indices bit by bit
+                        # inner ones
+                        in_st_h = halo
+                        in_end_h = halo + model_shape[0]
+                        in_st_w = halo
+                        in_end_w = halo+model_shape[1]
+                        inner_labels = labels_batch[m, in_st_h : in_end_h, in_st_w : in_end_w]    # ! careful with indexing here, could be halo+model_shape switched around
+                        # outer indices
+                        out_st_h = h_insert
+                        out_end_h = h_insert + model_shape[0]
+                        out_st_w = w_insert
+                        out_end_w = w_insert + model_shape[1]
+                        out_labels[out_st_h : out_end_h, out_st_w : out_end_w] = inner_labels
+                        # out_labels = np.zeros(out_img_shape, dtype=np.uint8)        
+
+
+            # TODO: what if a batch is not full?
+
+
+            # for j in range(n_y):
+            #     y_window = j * stride[0]
+            #     y = halo + j * stride[0]
+    
+            #     for i in range(n_x):
+            #         x_window = i * stride[1]
+            #         x = halo + i * stride[1]
+
+            #         # get the **window** out and insert it into the batch
+            #         window = padded[x_window : x_window+window_shape[1], y_window : y_window+window_shape[0]]
+            #         in_batch[ctr%batch_size,...] = window
+            #         out_loc[ctr%batch_size] = np.asarray((y,x))
+            #         ctr +=1
+            #         if (ctr % batch_size == 0):
+            #             labels_batch = model_pass_reduced(model, in_batch, augmentations, device)
+            #             for k in range(batch_size):
+            #                 x = out_loc[k][1]
+            #                 y = out_loc[k][0]
+            #                 out_labels[x:x+stride, y : y+stride] = labels_batch[k,...]
                         
-            x = to_quadrants(x)
-            labels = model_pass(model, x, augmentations, device)
-            labels = from_quadrants(labels)
+            #             # TODO: use 1-D indexing to calculate the index
+            #             # should be something around (ctr %n_x) * stride[0] = x_loc, (ctr//n_x) * stride[1] = y_loc
+            
+            labels = get_final_image(out_labels, img_shape)
         else:
             labels = model_pass(model, x, augmentations, device)
 
