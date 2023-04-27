@@ -89,15 +89,16 @@ def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, devic
 
     return labels.cpu().numpy().astype(np.int8)
 
-def model_pass_reduced(model : Model, img_batch : np.ndarray, augmentations : A.Compose, device : torch.device) -> np.ndarray:
-    for idx in range(img_batch.shape[0]):
-        img_i = img_batch[idx,...]
-        x_i = augmentations(image=img_i)['image'].to(device)
-        if idx == 0:
-            x_shape = tuple([img_batch.shape[0]] + list(x_i.shape))
-            x = torch.empty((x_shape), device=device)
-        x[idx,...] = x_i
-    # x_i = augmentations(image=x)['image'].to(device)
+def model_pass_reduced(model : Model, img : np.ndarray, augmentations : A.Compose, device : torch.device) -> np.ndarray:
+    # for idx in range(img_batch.shape[0]):
+    #     img_i = img_batch[idx,...]
+    #     x_i = augmentations(image=img_i)['image'].to(device)
+    #     if idx == 0:
+    #         x_shape = tuple([img_batch.shape[0]] + list(x_i.shape))
+    #         x = torch.empty((x_shape), device=device)
+    #     x[idx,...] = x_i
+    x = augmentations(image=img)['image'].to(device)
+    x = x.unsqueeze(dim=0)
     with torch.no_grad():
         y_hat = model(x)
     labels = model.get_labels(y_hat)
@@ -384,7 +385,7 @@ if __name__=="__main__":
                 j = k % n_w
 
                 # l is the index in the batch
-                l = k % batch_size
+                # l = k % batch_size
                 
                 # window locations
                 h_window = i * stride[0]
@@ -393,36 +394,40 @@ if __name__=="__main__":
                 # take the window
                 window = padded[h_window : h_window + window_shape[0], w_window : w_window + window_shape[1]]
                 # insert it into the batch
-                in_batch[l, ...] = window
+                # in_batch[l, ...] = window
 
+                ## From here - no batch processing
+                label_out = model_pass_reduced(model, window, augmentations, device)
+                l_inner = label_out[halo : -halo, halo : -halo]
+                out_labels[h_window : h_window + model_shape[0], w_window : w_window + model_shape[1]] = l_inner
                 # when the batch is ready 
                 # TODO: set a flag when the batch is full or when the end is reached to pass the model
                 # TODO: then get back the result. Make the for loop inside a model depending on the batch size
                 # ! create the in_batch dynamically. and include the FUCKING k == n_tot -1 in the condition
                 # ! turn into a dictionary mode?
-                if (k and (l == 0)):
-                    labels_batch = model_pass_reduced(model, in_batch, augmentations, device)
-                    for m in range(batch_size):
-                        #! these are not calculated right
-                        n = k - m
-                        ii = n // n_w
-                        jj = n % n_w
-                        h_insert = ii * stride[0]
-                        w_insert = jj * stride[1]
-                        # calculate the indices bit by bit
-                        # inner ones
-                        in_st_h = halo
-                        in_end_h = halo + model_shape[0]
-                        in_st_w = halo
-                        in_end_w = halo+model_shape[1]
-                        inner_labels = labels_batch[m, in_st_h : in_end_h, in_st_w : in_end_w]    # ! careful with indexing here, could be halo+model_shape switched around
-                        # outer indices
-                        out_st_h = h_insert
-                        out_end_h = h_insert + model_shape[0]
-                        out_st_w = w_insert
-                        out_end_w = w_insert + model_shape[1]
-                        out_labels[out_st_h : out_end_h, out_st_w : out_end_w] = inner_labels
-                        # out_labels = np.zeros(out_img_shape, dtype=np.uint8)        
+                # if (k and (l == 0)):
+                    # labels_batch = model_pass_reduced(model, in_batch, augmentations, device)
+                    # for m in range(batch_size):
+                    #     #! these are not calculated right
+                    #     n = k - m
+                    #     ii = n // n_w
+                    #     jj = n % n_w
+                    #     h_insert = ii * stride[0]
+                    #     w_insert = jj * stride[1]
+                    #     # calculate the indices bit by bit
+                    #     # inner ones
+                    #     in_st_h = halo
+                    #     in_end_h = halo + model_shape[0]
+                    #     in_st_w = halo
+                    #     in_end_w = halo+model_shape[1]
+                    #     inner_labels = labels_batch[m, in_st_h : in_end_h, in_st_w : in_end_w]    # ! careful with indexing here, could be halo+model_shape switched around
+                    #     # outer indices
+                    #     out_st_h = h_insert
+                    #     out_end_h = h_insert + model_shape[0]
+                    #     out_st_w = w_insert
+                    #     out_end_w = w_insert + model_shape[1]
+                    #     out_labels[out_st_h : out_end_h, out_st_w : out_end_w] = inner_labels
+                    #     # out_labels = np.zeros(out_img_shape, dtype=np.uint8)        
 
 
             # TODO: what if a batch is not full?
