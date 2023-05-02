@@ -19,6 +19,8 @@ import os
 
 import cv2
 
+from tqdm import tqdm
+
 def parse_args():
     parser = ArgumentParser(description="Proposing polygons for Semantic Segmentation model")
     # Model settings
@@ -99,8 +101,8 @@ if __name__=="__main__":
     if out is None:
         cdec = get_colour_decoder()
     # go through the image list
-    for img_f in img_list:
-        fpath = os.path.join(img_dir, (img_f + f_ext))
+    for img_f in tqdm(img_list):
+        fpath = os.path.join(img_dir, ".".join([img_f, f_ext]))
         img = load_image(fpath)
         assert img is not None, "Not an image File, None object. Ensure {} exists".format(fpath)
         x = img.copy()
@@ -182,9 +184,8 @@ if __name__=="__main__":
         # cnts = get_cnts(cnts)
         
         if out:
-            img_id, img_dict = get_image_dict(fpath, img_f + f_ext, cnts)
+            img_id, img_dict = get_image_dict(fpath, ".".join([img_f, f_ext]), cnts)
             insert_into_dict(json_dict, img_id, img_dict)
-
         
         else:
             # plot

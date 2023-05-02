@@ -29,7 +29,7 @@ def get_regions(cnts : np.ndarray) -> list:
 
     rglist = []
     for rg in cnts:
-        # rg = rg.squeeze()
+        rg = rg.squeeze()
         # if len(rg.shape) >= 2:
         rg_x, rg_y = _get_region(rg)
         region = {
@@ -80,7 +80,7 @@ def get_polygons_from_binary(bin_img: np.ndarray, param : tuple) -> np.ndarray:
 
     # base function
     cnts, hierarchy = cv2.findContours(bin_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) # cv2.RETR_TREE
-    
+
     n_cts = [cnt for cnt in cnts if not _is_too_small(cnt, param)]
 
     return n_cts
@@ -97,7 +97,7 @@ def _is_too_small(cnt : np.ndarray, param : tuple) -> bool:
         return True
     return True if (d_x < param[0] and d_y < param[1]) else False 
 
-def get_cnts(cnts):
+def _get_cnts(cnts):
     """
         utility function based on the fucking pyimagesearch thing because OpenCV has changed their shitty interface. Mofos
         https://github.com/PyImageSearch/imutils/blob/master/imutils/convenience.py#L154
