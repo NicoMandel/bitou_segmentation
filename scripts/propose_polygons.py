@@ -258,15 +258,15 @@ def get_padding(img_shape : tuple, model_shape : tuple, halo : int = 256) -> tup
     h = img_shape[0]
     w = img_shape[1]
 
-    leftover_w = w % model_w
-    leftover_h = h % model_h
-    extra_x = model_w - leftover_w
-    extra_y = model_h - leftover_h
+    extra_w = model_w - (w % model_w)
+    extra_h = model_h - (h % model_h)
+    # extra_x = model_w - leftover_w
+    # extra_y = model_h - leftover_h
     
     pad_left = int(halo)
-    pad_right = int(extra_x + halo)
+    pad_right = int(extra_w + halo)
     pad_top = int(halo)
-    pad_bottom = int(extra_y + halo)
+    pad_bottom = int(extra_h + halo)
 
     return pad_left, pad_right, pad_top, pad_bottom
 
@@ -286,11 +286,11 @@ def pad_image(img : np.ndarray, pad_top : int, pad_left : int, pad_right : int, 
     padded = cv2.copyMakeBorder(img, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_REFLECT) # BORDER_REPLICATE, BORDER_REFLECT_101, BORDER_WRAP
     return padded
 
-def get_out_shape(n_tot : int, n_w : int, model_shape : tuple) -> tuple:
+def get_out_shape(n_tot : int, n_h : int, model_shape : tuple) -> tuple:
     """
         get the shape of the image output - depends on n_x and n_y
     """
-    n_h = int(n_tot / n_w)
+    n_w = int(n_tot / n_h)
     return (n_h * model_shape[0], n_w * model_shape[1])
 
 def get_final_image(out_img : np.ndarray, img_shape : tuple) -> np.ndarray:
@@ -372,17 +372,17 @@ if __name__=="__main__":
             img_shape = img.shape[:-1]
 
             pad_left, pad_right, pad_top, pad_bottom = get_padding(img_shape, model_shape, halo)
-            n_tot, n_w  = get_tile_numbers(img_shape, model_shape)
-            out_img_shape = get_out_shape(n_tot, n_w, model_shape)
+            n_tot, n_h  = get_tile_numbers(img_shape, model_shape)
+            out_img_shape = get_out_shape(n_tot, n_h, model_shape)
             out_labels = np.zeros(out_img_shape, dtype=np.uint8)        
             padded = pad_image(img, pad_top, pad_left, pad_right, pad_bottom)
-            in_batch_size = [batch_size] + list(window_shape) + [3]
-            in_batch = np.zeros(tuple(in_batch_size), dtype=np.uint8)
+            # in_batch_size = [batch_size] + list(window_shape) + [3]
+            # in_batch = np.zeros(tuple(in_batch_size), dtype=np.uint8)
             # ! np indexing: rows, cols := h, w
             for k in range(n_tot):
                 # ! i is rows (h), j is columns (w)
-                i = k // n_w
-                j = k % n_w
+                j = k // n_h
+                i = k % n_h
 
                 # l is the index in the batch
                 # l = k % batch_size
@@ -393,6 +393,7 @@ if __name__=="__main__":
 
                 # take the window
                 window = padded[h_window : h_window + window_shape[0], w_window : w_window + window_shape[1]]
+                #! window is the wrong shape now - why?
                 # insert it into the batch
                 # in_batch[l, ...] = window
 
