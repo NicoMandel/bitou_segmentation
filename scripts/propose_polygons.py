@@ -1,40 +1,3 @@
-""" The basic semantic segmentation as outlined in the pytorch flash documentation [here](https://lightning-flash.readthedocs.io/en/latest/reference/semantic_segmentation.html)
-    TODO: put into batching
-    for j in range(n_y):
-        in_batch[ctr%batch_size,...] = window
-        out_loc[ctr%batch_size] = np.asarray((y,x))
-        ctr +=1
-        if (ctr % batch_size == 0 and j):
-            labels_batch = model_pass_reduced(model, in_batch, augmentations, device)
-            for k in range(batch_size):
-                x = out_loc[k][1]
-                y = out_loc[k][0]
-                out_labels[x:x+stride, y : y+stride] = labels_batch[k,...]
-    # TODO: set a flag when the batch is full or when the end is reached to pass the model
-                # TODO: then get back the result. Make the for loop inside a model depending on the batch size
-                # ! create the in_batch dynamically. and include the FUCKING k == n_tot -1 in the condition
-                # ! turn into a dictionary mode?
-            # for m in range(batch_size):
-                    #     n = k - m
-                    #     ii = n // n_w
-                    #     jj = n % n_w
-                    #     h_insert = ii * stride[0]
-                    #     w_insert = jj * stride[1]
-                    #     # calculate the indices bit by bit
-                    #     # inner ones
-                    #     in_st_h = halo
-                    #     in_end_h = halo + model_shape[0]
-                    #     in_st_w = halo
-                    #     in_end_w = halo+model_shape[1]
-                    #     inner_labels = labels_batch[m, in_st_h : in_end_h, in_st_w : in_end_w]    # ! careful with indexing here, could be halo+model_shape switched around
-                    #     # outer indices
-                    #     out_st_h = h_insert
-                    #     out_end_h = h_insert + model_shape[0]
-                    #     out_st_w = w_insert
-                    #     out_end_w = w_insert + model_shape[1]
-                    #     out_labels[out_st_h : out_end_h, out_st_w : out_end_w] = inner_labels
-                    #     # out_labels = np.zeros(out_img_shape, dtype=np.uint8)        
-"""
 
 import torch
 import numpy as np
@@ -65,100 +28,16 @@ def parse_args():
     parser.add_argument("-p", "--param", type=int, default=20, help="Number of pixels under which to remove polygons. default is 20")
     parser.add_argument("--shape", type=int, default=256, help="model shape to be used during inference. Should be larger (a multiple of) training. Defaults to 512")
     parser.add_argument("--halo", type=int, default=128, help="halo to be used by the model during inference. Defaults to 256, but could be as small as 128")
-    parser.add_argument("--batch", type=int, default=6, help="Batch Size for GPU inference. Defaults to 6")
+    parser.add_argument("--batch", type=int, default=12, help="Batch Size for GPU inference. Defaults to 6")
     args = parser.parse_args()
     return vars(args)
 
-# def rescale_image(img : torch.Tensor, msg: str) -> torch.Tensor:
-#     """
-#         function to pad the image if necessary by the architecture
-#     """
-#     nshape = extract_new_size(msg)
-#     nimg = pad_image(img, nshape)
-#     return nimg
-
-# def model_pass(model : Model, img : np.ndarray, augmentations : A.Compose, device : torch.device) -> np.ndarray:
-#     """
-#         ! model size 100% breaks the GPU memory on my computer ( > 6 GB) -> rescaling image necessary.
-#         TODO: could break into a batch of 4 (25%) -> run as one batch, then restitch
-#         Binary search by hand resulted in **44 %** being the largest possible size. 
-#         For images of size (5460, 8192) that results in input image of size (2402, 3604) -> padded to (2432, 3616)
-#     """
-
-#     if len(img.shape) == 3:
-#         x = augmentations(image=img)['image'].to(device)
-#         x = x.unsqueeze(dim=0)
-#     else:
-#         # x = torch.Tensor()
-#         for i in range(img.shape[0]):
-#             img_i = img[i,...]
-#             x_i = augmentations(image=img_i)['image'].to(device)
-#             if i == 0:
-#                 x_shape = tuple([img.shape[0]] + list(x_i.shape))
-#                 x = torch.empty((x_shape), device=device)
-#             x[i,...] = x_i
-#     # x.to(device)
-#     with torch.no_grad():
-#         # y_hat = model(x)
-#         try:
-#             y_hat = model(x)
-#         except RuntimeError as e:
-#             nx = rescale_image(x, e)
-#             # nx.to(device)
-#             y_hat = model(nx)
-#     labels = model.get_labels(y_hat)
-
-#     return labels.cpu().numpy().astype(np.int8)
-
-def model_pass_reduced(model : Model, img : np.ndarray, augmentations : A.Compose, device : torch.device) -> np.ndarray:
-    # for idx in range(img_batch.shape[0]):
-    #     img_i = img_batch[idx,...]
-    #     x_i = augmentations(image=img_i)['image'].to(device)
-    #     if idx == 0:
-    #         x_shape = tuple([img_batch.shape[0]] + list(x_i.shape))
-    #         x = torch.empty((x_shape), device=device)
-    #     x[idx,...] = x_i
-    x = augmentations(image=img)['image'].to(device)
-    x = x.unsqueeze(dim=0)
+def model_pass(model : Model, batch: torch.Tensor, device : torch.device) -> np.ndarray:
+    batch = batch.to(device)
     with torch.no_grad():
-        y_hat = model(x)
+        y_hat = model(batch)
     labels = model.get_labels(y_hat)
     return labels.cpu().numpy().astype(np.uint8)
-
-# def to_quadrants(img : np.ndarray) -> np.ndarray:
-#     """
-#         Function to turn an image into a batch from images
-#         top left is 0, top right is 1, bottom left is 2, bottom right is 3
-#     """
-#     half_v = img.shape[0] // 2
-#     half_h = img.shape[1] // 2
-#     l_t = img[: half_v, :half_h]
-#     l_b = img[half_v :, :half_h]
-#     r_t = img[: half_v, half_h :]
-#     r_b = img[half_v:, half_h : ]
-#     nimg = np.zeros((4, half_v, half_h, img.shape[2])).astype(np.uint8)
-#     nimg[0,...] = l_t
-#     nimg[1, ...] = r_t
-#     nimg[2, ...] = l_b
-#     nimg[3, ...] = r_b
-#     return nimg
-
-# def from_quadrants(img : np.ndarray) -> np.ndarray:
-#     """
-#         Function to return a batch of 4 images into a single image again.
-#         top left is 0, top right is 1, bottom left is 2, bottom right is 3
-#     """
-#     img_h = img.shape[1]
-#     img_v = img.shape[2]
-#     nimg_shape = [img_h *2, img_v * 2]
-#     nimg_sh = nimg_shape if len(img.shape) == 3 else nimg_shape + [img.shape[3]] 
-#     nimg = np.zeros(nimg_sh).astype(np.uint8)
-#     nimg[: img_h, : img_v] = img[0,...]
-#     nimg[: img_h, img_v :] = img[1, ...]
-#     nimg[img_h:, : img_v] = img[2,...]
-#     nimg[img_h:, img_v :] = img[3, ...]
-#     return nimg
-
 
 if __name__=="__main__":
     #Setup
@@ -237,8 +116,11 @@ if __name__=="__main__":
             out_img_shape = get_out_shape(n_tot, n_h, model_shape)
             out_labels = np.zeros(out_img_shape, dtype=np.uint8)        
             padded = pad_image(img, pad_top, pad_left, pad_right, pad_bottom)
-            # in_batch_size = [batch_size] + list(window_shape) + [3]
-            # in_batch = np.zeros(tuple(in_batch_size), dtype=np.uint8)
+
+            # Torch format: b c h w
+            in_batch = None 
+            # torch.zeros(tuple([batch_size, 3, window_shape[0], window_shape[1]]), dtype=torch.uint8)
+            ctr = 0
             for k in range(n_tot):
                 j = k // n_h
                 i = k % n_h
@@ -250,19 +132,48 @@ if __name__=="__main__":
                 h_window = i * stride[0]
                 w_window = j * stride[1]
 
-                # take the window
+                # take the window and turn it into the batch format
                 window = padded[h_window : h_window + window_shape[0], w_window : w_window + window_shape[1]]
-                #! window is the wrong shape now - why?
-                # insert it into the batch
-                # in_batch[l, ...] = window
+                x = augmentations(image=window)['image']
 
-                label_out = model_pass_reduced(model, window, augmentations, device)
-                l_inner = label_out[halo : -halo, halo : -halo]
-                out_labels[h_window : h_window + model_shape[0], w_window : w_window + model_shape[1]] = l_inner
+                # create the in_batch
+                if in_batch is None:
+                    in_batch = [x]
+                else:
+                    in_batch.append(x)
+                ctr += 1
+                # x = x.unsqueeze(dim=0)
+
+                # if the batch is full - or if it is the last element
+                if ((ctr % batch_size) == 0 or (ctr == n_tot)):
+                    batch_len = len(in_batch)
+                    in_batch = torch.stack(tuple(in_batch), dim=0)
+                    batch_out = model_pass(model, in_batch.float(), device)
+                    for m in range(batch_len-1, -1, -1):
+                        # which index in the batch - inverse order
+                        b_id = batch_len -m -1                        
+                        # how many images before are we using now to calculate?
+                        n = k - m #-1
+                        jj = n // n_h
+                        ii = n % n_h
+                        # where do we want to insert it in the new image?
+                        h_insert = ii * stride[0]
+                        w_insert = jj * stride[1]
+                        
+                        # get the image out
+                        out_im = batch_out[b_id, halo : -halo, halo : -halo]
+
+                        # insert it into the right place in the output image
+                        out_labels[h_insert : h_insert + model_shape[0], w_insert : w_insert + model_shape[1]] = out_im
+                        in_batch = None
+
+                # label_out = model_pass(model, x, device)
+                # l_inner = label_out[halo : -halo, halo : -halo]
+                # out_labels[h_window : h_window + model_shape[0], w_window : w_window + model_shape[1]] = l_inner
             
             labels = get_final_image(out_labels, img_shape)
         else:
-            labels = model_pass_reduced(model, x, augmentations, device)
+            labels = model_pass(model, x, augmentations, device)
 
         # turn the labels into a binary image
         bin_img = np.copy(labels).astype(np.uint8)
