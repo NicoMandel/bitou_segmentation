@@ -190,7 +190,7 @@ if __name__=="__main__":
         else:
             # plot
             drawing = img.copy().astype(np.uint8)
-            col = (255, 0, 0)
+            col = (255, 255, 0)
             for _ in tqdm(range(len(cnts)), desc="Drawing", leave=False):
                 cv2.drawContours(drawing, cnts, -1, col, 3) #, cv2.LINE_8, hierarchy, 0)
             mask = cdec(labels)
