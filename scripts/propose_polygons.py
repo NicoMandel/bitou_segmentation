@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument("-p", "--param", type=int, default=20, help="Number of pixels under which to remove polygons. default is 20")
     parser.add_argument("--shape", type=int, default=256, help="model shape to be used during inference. Should be larger (a multiple of) training. Defaults to 512")
     parser.add_argument("--halo", type=int, default=128, help="halo to be used by the model during inference. Defaults to 256, but could be as small as 128")
-    parser.add_argument("--batch", type=int, default=12, help="Batch Size for GPU inference. Defaults to 6")
+    parser.add_argument("--batch", type=int, default=12, help="Batch Size for GPU inference. Defaults to 12")
     args = parser.parse_args()
     return vars(args)
 
@@ -101,7 +101,7 @@ if __name__=="__main__":
     if out is None:
         cdec = get_colour_decoder()
     # go through the image list
-    for img_f in tqdm(img_list):
+    for img_f in tqdm(img_list, desc="Image"):
         fpath = os.path.join(img_dir, ".".join([img_f, f_ext]))
         img = load_image(fpath)
         assert img is not None, "Not an image File, None object. Ensure {} exists".format(fpath)
@@ -123,7 +123,7 @@ if __name__=="__main__":
             in_batch = None 
             # torch.zeros(tuple([batch_size, 3, window_shape[0], window_shape[1]]), dtype=torch.uint8)
             ctr = 0
-            for k in range(n_tot):
+            for k in tqdm(range(n_tot), leave=False, desc="Window"):
                 j = k // n_h
                 i = k % n_h
 
@@ -191,7 +191,7 @@ if __name__=="__main__":
             # plot
             drawing = img.copy().astype(np.uint8)
             col = (255, 0, 0)
-            for _ in range(len(cnts)):
+            for _ in tqdm(range(len(cnts)), desc="Drawing", leave=False):
                 cv2.drawContours(drawing, cnts, -1, col, 3) #, cv2.LINE_8, hierarchy, 0)
             mask = cdec(labels)
             mask = overlay_images(img, mask, alpha=0.5)
