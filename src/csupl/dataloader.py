@@ -230,7 +230,7 @@ class TestDataModule(pl.LightningDataModule):
                 # from the labels, take the inside window - the halo
                 window_label = mask[h_window : h_window + self.model_shape[0], w_window : w_window + self.model_shape[1]]
                 # generate a new name
-                out_name = "_".join([imgname,k])
+                out_name = "_".join([imgname,str(k)])
                 write_image(hidden_img_dir, out_name, window_im, self.img_ext)
                 write_image(hidden_mask_dir, out_name, window_label, self.mask_ext)
 

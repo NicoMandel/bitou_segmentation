@@ -15,7 +15,7 @@ import segmentation_models_pytorch as sgm
 
 # lightning
 import pytorch_lightning as pl
-from csupl.dataloader import BitouDataModule, BitouDataset
+from csupl.dataloader import BitouDataModule, TestDataModule
 
 # loss fct
 # from torch.nn import CrossEntropyLoss
@@ -49,7 +49,8 @@ def parse_args():
     parser.add_argument("--height", help="Height to be used during training", default=None, type=int)
     parser.add_argument("--max-size", help="Maximum image size encountered (along the smaller dimension). \
                         Defaults to None. If None, will not use spatial Pyramid", default=None, type=int)
-    
+    parser.add_argument("--halo", default=128, type=int, help="Halo to be used for model testing. Defaults to 128")
+
     # Training settings
     parser.add_argument("-b", "--batch", type=int, default=12, help="batch size to be used. Should not exceed memory, depends on Network")
     parser.add_argument("--workers", type=int, default=4, help="Number of workers to be used for dataloading. Default 4. Recommended: 4 * (num_gpus)")
@@ -135,15 +136,13 @@ def get_training_transforms(max_size : int, shape : tuple, mean : tuple, std : t
     tfs = A.Compose([tf for tf in tf_list if tf is not None])
     return tfs
 
-def get_test_transforms(shape : tuple, mean : tuple, std : tuple) -> A.Compose:
+def get_test_transforms(mean : tuple, std : tuple) -> A.Compose:
     """
         Test Tranforms. Only:
-            * Cropping
             * Normalization
             * ToTensor
     """
     test_tfs = A.Compose([
-        A.RandomCrop(shape[0], shape[1], p=1),
         A.Normalize(mean=mean, std=std),
         ToTensorV2(transpose_mask=True)
     ])
@@ -191,8 +190,8 @@ if __name__=="__main__":
     # ! losses: https://smp.readthedocs.io/en/latest/losses.html
     # See paper - focal loss focusses on hard examples - so that these become weighted higher during training
     # loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
-    # loss = sgm.losses.FocalLoss(loss_mode)
-    loss = sgm.losses.TverskyLoss(alpha=0.5, beta=0.5, mode=loss_mode)
+    loss = sgm.losses.FocalLoss(loss_mode)
+    # loss = sgm.losses.TverskyLoss(alpha=0.5, beta=0.5, mode=loss_mode)
     # Task parameters - depending on the training settings    
     lr = 1.0e-3
     weight_decay = 1.0e-4
@@ -209,14 +208,11 @@ if __name__=="__main__":
     p = 0.5
     shape = get_shape(args["height"], args["width"])
     train_aug = get_training_transforms(args["max_size"], shape, mean, std, p=p)
-    test_transforms = get_test_transforms(shape, mean=mean, std=std)
+    test_transforms = get_test_transforms(mean=mean, std=std)
 
     # lightning - updated way to load the data - with a datamodule. Much simpler
     datamodule = BitouDataModule(
         root = args["input"],
-        test_dir = "test",
-        # num_classes,
-        test_transforms=test_transforms,
         img_folder="images",
         mask_folder="labels",
         train_transforms=train_aug,
@@ -261,8 +257,23 @@ if __name__=="__main__":
         model.freeze_encoder()
     trainer.fit(model, datamodule=datamodule)
 
+    # Loading the test datamodule
+    test_dm = TestDataModule(
+        root = args["input"],
+        test_dir = "test",
+        img_folder="images",
+        mask_folder="labels",
+        test_transforms=test_transforms,
+        batch_size=args["batch"], 
+        num_workers=args["workers"],
+        img_ext=args["image_ext"],
+        mask_ext=args["mask_ext"],
+        halo = args["halo"],
+        model_shape=shape,      #! recommendation is to do testing and inference on larger model shape,
+        )
+
     # Test step
-    trainer.test(model,datamodule=datamodule)
+    trainer.test(model,datamodule=test_dm)
 
     # Exporting the model
     if args["output"] is not None:
@@ -282,7 +293,9 @@ if __name__=="__main__":
             "epochs" : args["epochs"],
             "freeze backbone" : True if args["freeze"] else False,
             "image shape" : shape,
-            "Max image size" : args["max_size"]
+            "Max image size" : args["max_size"],
+            "Halo": args["halo"]
+
             }
         modeln = get_model_name(model)
         log_experiment(modeln, args["output"], **settingsdict)
