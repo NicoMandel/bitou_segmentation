@@ -12,7 +12,7 @@ import torch
 
 # lightning
 import pytorch_lightning as pl
-from csupl.dataloader import BitouDataset, DataLoader
+from csupl.dataloader import BitouDataset, TestDataModule
 from csupl.model import Model
 
 from train_model import get_test_transforms, get_shape
@@ -30,10 +30,10 @@ from albumentations.pytorch import ToTensorV2
 def parse_args():
     parser = ArgumentParser(description="Testing Loop for Semantic Segmentation model")
     # Model settings
-    parser.add_argument("-m", "--model", type=str, help="Which model to choose. Specify path")
+    parser.add_argument("-m", "--model", type=str, help="Which model to choose. Specify path", required=True)
     # Model size settings
-    parser.add_argument("--width", help="Width to be used for image preprocessing", default=512, type=int)
-    parser.add_argument("--height", help="Height to be used for image preprocessing", default=512, type=int)
+    parser.add_argument("--width", help="Width to be used for image preprocessing", default=256, type=int)
+    parser.add_argument("--height", help="Height to be used for image preprocessing", default=256, type=int)
     
     # Dataloader settings
     parser.add_argument("-b", "--batch", type=int, default=None, help="batch size to be used. Should not exceed memory, depends on Network")
@@ -82,9 +82,9 @@ if __name__=="__main__":
     test_tfs = get_test_transforms(shape, mean, std)
     
     # Test directory - own dataloader, not datamodule
-    ds = BitouDataset(args["input"], test_tfs, img_folder="images", mask_folder="labels",
-                        img_ext=args["image_ext"], mask_ext=args["mask_ext"])
-    dl = DataLoader(ds, batch_size=args["batch"], num_workers=args["workers"],pin_memory=True)
+    # ds = BitouDataset(args["input"], test_tfs, img_folder="images", mask_folder="labels",
+                        # img_ext=args["image_ext"], mask_ext=args["mask_ext"])
+    dl = TestDataModule(ds, batch_size=args["batch"], num_workers=0 ,pin_memory=True)
     
     # Trainer
     trainer = pl.Trainer(

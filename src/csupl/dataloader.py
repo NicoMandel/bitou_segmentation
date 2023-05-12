@@ -12,17 +12,19 @@ from typing import Any, Callable, Optional
 # For albumentations
 import numpy as np
 import os.path
+from tqdm import tqdm
 
 import pytorch_lightning as pl
 
-from csupl.utils import load_image, load_label
+from csupl.utils import load_image, load_label, write_image, get_image_list
+from csupl.propose_utils import get_window_dims, get_padding, get_tile_numbers, get_out_shape, pad_image
 
 class BitouDataset(VisionDataset):
 
     def __init__(self, root: str,
             # num_classes: int,
             transforms: Optional[Callable] = None,
-                img_folder : str ="bitou_test", mask_folder: str ="bitou_test_masks", img_ext : str = ".JPG", mask_ext : str = ".png") -> None:
+                img_folder : str ="images", mask_folder: str ="labels", img_ext : str = ".JPG", mask_ext : str = ".png") -> None:
         # directories
         super().__init__(root, transforms)
         self.img_dir = Path(self.root) / img_folder
@@ -32,7 +34,6 @@ class BitouDataset(VisionDataset):
         self.img_list = list([x.stem for x in self.img_dir.glob("*"+img_ext)])
 
         # number of classes
-        # self.num_classes = num_classes
         self.img_ext = img_ext
         self.mask_ext = mask_ext
 
@@ -59,20 +60,23 @@ class BitouDataset(VisionDataset):
         return img, mask
 
 class BitouDataModule(pl.LightningDataModule):
-
+    """
+        Datamodule to be used for training and validation.
+        Because this works with small crops from the large images, it can run plenty of times.
+        The test dataset will be evaulated on FULL images, which need to be cropped and windowed to make sense.
+        This is defined in the Test Datamodule!
+    """
     def __init__(self, root : str,
-                test_dir : str,
+                # test_dir : str,
                 num_workers : int = 1, batch_size : int = 4, val_percentage : float = 0.25,
-                img_folder : str = "bitou_test", mask_folder : str = "bitou_test_masks",
+                img_folder : str = "images", mask_folder : str = "labels",
                 train_transforms: Optional[Callable] = None,
                 img_ext : str = ".JPG", mask_ext : str = ".png",
-                test_transforms: Optional[Callable] = None
                 ) -> None:
         super().__init__()
         
         # folder structure
         self.root_dir = root
-        self.test_dir = test_dir
         self.img_folder = img_folder
         self.mask_folder = mask_folder
         
@@ -83,13 +87,12 @@ class BitouDataModule(pl.LightningDataModule):
         
         # Transforms
         self.train_transforms = train_transforms
-        self.test_transforms = test_transforms
 
         # File extensions
         self.img_ext = img_ext
         self.mask_ext = mask_ext
 
-    # TODO: change this from assigning states (self.x) because it will only be run on one process - use setup.
+    # change this from assigning states (self.x) because it will only be run on one process - use setup.
     # see [here](https://pytorch-lightning.readthedocs.io/en/latest/data/datamodule.html#prepare-data)
     def prepare_data(self):
         """
@@ -107,11 +110,6 @@ class BitouDataModule(pl.LightningDataModule):
         # Actual datasets
         self.train_dataset, self.val_dataset = random_split(self.default_dataset, [train_part, val_part])
     
-        # test dataset
-        testpath = Path(self.root_dir) / self.test_dir
-        self.test_dataset = BitouDataset(testpath, self.test_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder,
-                                    img_ext=".jpg", mask_ext=self.mask_ext)
-
     # Dataloaders:
     def train_dataloader(self):
         dl = DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers,
@@ -124,13 +122,106 @@ class BitouDataModule(pl.LightningDataModule):
         pin_memory=True
         )
         return dl
-    
+
+class TestDataModule(pl.LightningDataModule):
+
+    def __init__(self, root : str,
+                test_dir : str,
+                num_workers : int = 1, batch_size : int = 4,
+                img_folder : str = "bitou_test", mask_folder : str = "bitou_test_masks",
+                img_ext : str = ".JPG", mask_ext : str = ".png",
+                test_transforms: Optional[Callable] = None
+                # TODO: insert model shape
+                # TODO: insert check whether hidden folder exists (or flag not to create folder)
+                ) -> None:
+        super().__init__()
+        
+        # folder structure
+        self.root_dir = root
+        self.test_dir = test_dir
+        self.img_folder = img_folder
+        self.mask_folder = mask_folder
+        
+        # Training and loading parameters
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        
+        # Transforms
+        self.test_transforms = test_transforms
+
+        # File extensions
+        self.img_ext = img_ext
+        self.mask_ext = mask_ext
+
+    # change this from assigning states (self.x) because it will only be run on one process - use setup.
+    # see [here](https://pytorch-lightning.readthedocs.io/en/latest/data/datamodule.html#prepare-data)
+    def prepare_data(self):
+        """
+            TODO: insert check to see if the hidden folder needs to be created. if yes, run the function, if not, just return the correct dataset
+        """
+        if hidden is not None:
+            hidden_dir = self._create_hidden_dataset()
+            testpath = Path(hidden_dir)
+        else:
+            testpath = Path(self.root_dir) / self.test_dir
+        self.test_dataset = BitouDataset(testpath, self.test_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder,
+                                    img_ext=".jpg", mask_ext=self.mask_ext)
+
+    def _create_hidden_dataset(self):
+        """
+            Function to create a hidden dataset of tiles.
+        """
+        # make a new test dataset, which is a hidden folder in the same directory
+        import os
+        hidden_dir = os.path.join(self.root_dir, "." + self.test_dir)
+        os.mkdir(hidden_dir)
+        # create the subfolders
+        hidden_img_dir = os.path.join(hidden_dir, self.img_folder)
+        hidden_mask_dir = os.path.join(hidden_dir, self.mask_folder)
+        os.mkdir(hidden_img_dir)
+        os.mkdir(hidden_mask_dir)
+
+        # read in the old dataset
+        test_dir = Path(self.root_dir) / self.test_dir
+        ds = BitouDataset(test_dir, None, img_folder=self.img_folder, mask_folder=self.mask_folder, img_ext=".jpg", mask_ext=self.mask_ext)
+        imdir = Path(test_dir) / self.img_folder
+        maskdir = Path(test_dir) / self.mask_folder
+        imlist, _  = get_image_list(imdir)
+        # go through all the images
+        for img, mask in tqdm(ds, desc="Preparing Tiles"):
+            imshape = img.shape[:-1]
+            pad_left, pad_right, pad_top, pad_bottom = get_padding(imshape, model_shape, halo)
+            n_tot, n_h = get_tile_numbers(imshape, model_shape)
+            out_imshape = get_out_shape(n_tot, n_h, model_shape)
+            padded = pad_image(img, pad_top, pad_left, pad_right, pad_bottom)
+
+            # for the image, create image and subsequent labels to be evaluated against
+            for k in tqdm(range(n_tot), desc="Window", leave=False):
+                j = k // n_h
+                i = k % n_h
+                h_window = i * stride[0]
+                w_window = j * stride[1]
+                # from the image, take the large window
+                window_im = padded[h_window : h_window + window_shape[0], w_window : w_window + window_shape[1]]
+                # generate a new name
+                out_name = #! FUCK, how do I get the names?
+                # from the labels, take the inside window - the halo
+                window_label = mask[h_window : h_window + model_shape[0], w_window : w_window + model_shape[1]]
+
     def test_dataloader(self):
-        dl = DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers,
+        """
+            Tests should be performed on large images, therefore the dataset needs to be rewritten.
+        """
+        dl = DataLoader(self.dataset, batch_size=self.batch_size, num_workers=self.num_workers,
         pin_memory=True
         )
         return dl
 
+    def teardown(self, stage: Optional[str] = None) -> None:
+        """
+            TODO: implement for end of "test" stage -> delete hidden dataset?
+        """
+        return super().teardown(stage)
 #################################
 # Secondary Datasets
 #################################
@@ -205,3 +296,6 @@ class SimpleBitouPetDataset(OxfordPetDataset):
         sample["trimap"] = np.expand_dims(trimap, 0)
 
         return sample
+
+
+        
