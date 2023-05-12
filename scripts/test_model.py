@@ -20,9 +20,6 @@ from train_model import get_test_transforms, get_shape
 # Own imports
 from argparse import ArgumentParser
 
-# import transforms as tfs
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 
 # Logging
 # from pytorch_lightning import loggers as pl_loggers
@@ -38,9 +35,10 @@ def parse_args():
     # Dataloader settings
     parser.add_argument("-b", "--batch", type=int, default=None, help="batch size to be used. Should not exceed memory, depends on Network")
     parser.add_argument("--workers", type=int, default=4, help="Number of workers to be used for dataloading. Default 4. Recommended: 4 * (num_gpus)")
+    parser.add_argument("--halo", type=int, default=128, help="Halo to be used around the image for creating a window for inference. Default is 128")
     
     # Dataset Settings
-    parser.add_argument("-i", "--input", help="Input Directory. Within this directory, will look for <images> and <masks> for training", type=str)    
+    parser.add_argument("-i", "--input", help="Input Directory. Within this directory, will look <test> for testing", type=str)    
     parser.add_argument("--mask-ext", type=str, help="Mask file extension to be read in the directory. Defaults to .png", default=".png")
     parser.add_argument("--image-ext", type=str, help="Image file extension to be read from the image directory. Defaults to .JPG", default=".JPG")
     args = parser.parse_args()
@@ -79,12 +77,24 @@ if __name__=="__main__":
     mean = tuple(preprocess_params['mean'])
     std = tuple(preprocess_params['std'])
     shape = get_shape(args["height"], args["width"])
-    test_tfs = get_test_transforms(shape, mean, std)
+    test_tfs = get_test_transforms(mean, std)
     
     # Test directory - own dataloader, not datamodule
-    # ds = BitouDataset(args["input"], test_tfs, img_folder="images", mask_folder="labels",
-                        # img_ext=args["image_ext"], mask_ext=args["mask_ext"])
-    dl = TestDataModule(ds, batch_size=args["batch"], num_workers=0 ,pin_memory=True)
+    # Loading the test datamodule
+    test_dm = TestDataModule(
+        root = args["input"],
+        test_dir = "test",
+        img_folder="images",
+        mask_folder="labels",
+        test_transforms=test_tfs,
+        batch_size=args["batch"], 
+        num_workers=args["workers"],
+        img_ext=args["image_ext"],
+        mask_ext=args["mask_ext"],
+        halo = args["halo"],
+        model_shape=shape,      #! recommendation is to do testing and inference on larger model shape,
+        create_hidden=True
+        )
     
     # Trainer
     trainer = pl.Trainer(
@@ -93,4 +103,4 @@ if __name__=="__main__":
     )
     
     # Actual test step
-    trainer.test(model = model, dataloaders = dl)
+    trainer.test(model = model, datamodule = test_dm)

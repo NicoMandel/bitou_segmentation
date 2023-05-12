@@ -127,10 +127,6 @@ if __name__=="__main__":
                 j = k // n_h
                 i = k % n_h
 
-                # l is the index in the batch
-                # l = k % batch_size
-                
-                # window locations
                 h_window = i * stride[0]
                 w_window = j * stride[1]
 
@@ -144,7 +140,6 @@ if __name__=="__main__":
                 else:
                     in_batch.append(x)
                 ctr += 1
-                # x = x.unsqueeze(dim=0)
 
                 # if the batch is full - or if it is the last element
                 if ((ctr % batch_size) == 0 or (ctr == n_tot)):

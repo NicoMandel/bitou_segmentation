@@ -17,7 +17,7 @@ from tqdm import tqdm
 import pytorch_lightning as pl
 
 from csupl.utils import load_image, load_label, write_image, get_image_list
-from csupl.propose_utils import get_window_dims, get_padding, get_tile_numbers, get_out_shape, pad_image
+from csupl.propose_utils import get_window_dims, get_padding, get_tile_numbers, pad_image, get_stride
 
 class BitouDataset(VisionDataset):
 
@@ -66,8 +66,8 @@ class BitouDataModule(pl.LightningDataModule):
         The test dataset will be evaulated on FULL images, which need to be cropped and windowed to make sense.
         This is defined in the Test Datamodule!
     """
-    def __init__(self, root : str,
-                # test_dir : str,
+    def __init__(self,
+                root : str,
                 num_workers : int = 1, batch_size : int = 4, val_percentage : float = 0.25,
                 img_folder : str = "images", mask_folder : str = "labels",
                 train_transforms: Optional[Callable] = None,
@@ -125,14 +125,16 @@ class BitouDataModule(pl.LightningDataModule):
 
 class TestDataModule(pl.LightningDataModule):
 
-    def __init__(self, root : str,
+    def __init__(self,
+                root : str,
                 test_dir : str,
+                model_shape : tuple,
                 num_workers : int = 1, batch_size : int = 4,
-                img_folder : str = "bitou_test", mask_folder : str = "bitou_test_masks",
+                img_folder : str = "images", mask_folder : str = "labels",
                 img_ext : str = ".JPG", mask_ext : str = ".png",
-                test_transforms: Optional[Callable] = None
-                # TODO: insert model shape
-                # TODO: insert check whether hidden folder exists (or flag not to create folder)
+                test_transforms: Optional[Callable] = None,
+                create_hidden : bool = False,
+                halo : int =None,
                 ) -> None:
         super().__init__()
         
@@ -141,6 +143,15 @@ class TestDataModule(pl.LightningDataModule):
         self.test_dir = test_dir
         self.img_folder = img_folder
         self.mask_folder = mask_folder
+
+        # Model parameters
+        self.model_shape = model_shape
+        self.stride = get_stride(model_shape)
+        if halo is None:
+            self.halo = int(model_shape[0] / 2)
+        else:
+            self.halo = halo
+        self.window_shape = get_window_dims(model_shape, self.halo)
         
         # Training and loading parameters
         self.batch_size = batch_size
@@ -153,18 +164,21 @@ class TestDataModule(pl.LightningDataModule):
         self.img_ext = img_ext
         self.mask_ext = mask_ext
 
+        # hidden creation
+        self.create_hidden = create_hidden
+
     # change this from assigning states (self.x) because it will only be run on one process - use setup.
     # see [here](https://pytorch-lightning.readthedocs.io/en/latest/data/datamodule.html#prepare-data)
     def prepare_data(self):
         """
-            TODO: insert check to see if the hidden folder needs to be created. if yes, run the function, if not, just return the correct dataset
+            prepares the dataset by splitting it into smaller sets
         """
-        if hidden is not None:
+        if self.create_hidden:
             hidden_dir = self._create_hidden_dataset()
             testpath = Path(hidden_dir)
         else:
             testpath = Path(self.root_dir) / self.test_dir
-        self.test_dataset = BitouDataset(testpath, self.test_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder,
+        self.dataset = BitouDataset(testpath, self.test_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder,
                                     img_ext=".jpg", mask_ext=self.mask_ext)
 
     def _create_hidden_dataset(self):
@@ -174,6 +188,10 @@ class TestDataModule(pl.LightningDataModule):
         # make a new test dataset, which is a hidden folder in the same directory
         import os
         hidden_dir = os.path.join(self.root_dir, "." + self.test_dir)
+        if os.path.exists(hidden_dir):
+            print("Path {} already exists! Check if the files have already been written".format(hidden_dir))
+            return hidden_dir
+        print("Creating new hidden dataset at {} \n This may take a while.".format(hidden_dir))
         os.mkdir(hidden_dir)
         # create the subfolders
         hidden_img_dir = os.path.join(hidden_dir, self.img_folder)
@@ -183,30 +201,40 @@ class TestDataModule(pl.LightningDataModule):
 
         # read in the old dataset
         test_dir = Path(self.root_dir) / self.test_dir
-        ds = BitouDataset(test_dir, None, img_folder=self.img_folder, mask_folder=self.mask_folder, img_ext=".jpg", mask_ext=self.mask_ext)
         imdir = Path(test_dir) / self.img_folder
         maskdir = Path(test_dir) / self.mask_folder
         imlist, _  = get_image_list(imdir)
         # go through all the images
-        for img, mask in tqdm(ds, desc="Preparing Tiles"):
+        for imgname in tqdm(imlist, desc="Preparing Tiles"):
+            # load image and mask
+            img_f = os.path.join(str(imdir), imgname + self.img_ext)
+            mask_f = os.path.join(str(maskdir), imgname + self.mask_ext)
+            img = load_image(img_f)
+            mask = load_label(mask_f)
+
+            # pad accordingly
             imshape = img.shape[:-1]
-            pad_left, pad_right, pad_top, pad_bottom = get_padding(imshape, model_shape, halo)
-            n_tot, n_h = get_tile_numbers(imshape, model_shape)
-            out_imshape = get_out_shape(n_tot, n_h, model_shape)
+            pad_left, pad_right, pad_top, pad_bottom = get_padding(imshape, self.model_shape, self.halo)
+            n_tot, n_h = get_tile_numbers(imshape, self.model_shape)
+            # out_imshape = get_out_shape(n_tot, n_h, self.model_shape)
             padded = pad_image(img, pad_top, pad_left, pad_right, pad_bottom)
 
             # for the image, create image and subsequent labels to be evaluated against
             for k in tqdm(range(n_tot), desc="Window", leave=False):
                 j = k // n_h
                 i = k % n_h
-                h_window = i * stride[0]
-                w_window = j * stride[1]
+                h_window = i * self.stride[0]
+                w_window = j * self.stride[1]
                 # from the image, take the large window
-                window_im = padded[h_window : h_window + window_shape[0], w_window : w_window + window_shape[1]]
-                # generate a new name
-                out_name = #! FUCK, how do I get the names?
+                window_im = padded[h_window : h_window + self.window_shape[0], w_window : w_window + self.window_shape[1]]
                 # from the labels, take the inside window - the halo
-                window_label = mask[h_window : h_window + model_shape[0], w_window : w_window + model_shape[1]]
+                window_label = mask[h_window : h_window + self.model_shape[0], w_window : w_window + self.model_shape[1]]
+                # generate a new name
+                out_name = "_".join([imgname,k])
+                write_image(hidden_img_dir, out_name, window_im, self.img_ext)
+                write_image(hidden_mask_dir, out_name, window_label, self.mask_ext)
+
+        return hidden_dir
 
     def test_dataloader(self):
         """
@@ -217,11 +245,11 @@ class TestDataModule(pl.LightningDataModule):
         )
         return dl
 
-    def teardown(self, stage: Optional[str] = None) -> None:
-        """
-            TODO: implement for end of "test" stage -> delete hidden dataset?
-        """
-        return super().teardown(stage)
+    # def teardown(self, stage: Optional[str] = None) -> None:
+    #     """
+    #         TODO: implement for end of "test" stage -> delete hidden dataset?
+    #     """
+    #     return super().teardown(stage)
 #################################
 # Secondary Datasets
 #################################
