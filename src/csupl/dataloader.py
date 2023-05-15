@@ -17,7 +17,7 @@ from tqdm import tqdm
 import pytorch_lightning as pl
 
 from csupl.utils import load_image, load_label, write_image, get_image_list
-from csupl.propose_utils import get_window_dims, get_padding, get_tile_numbers, pad_image, get_stride
+from csupl.propose_utils import get_window_dims, get_padding, get_padding_labels, get_tile_numbers, pad_image, get_stride
 
 class BitouDataset(VisionDataset):
 
@@ -179,7 +179,7 @@ class TestDataModule(pl.LightningDataModule):
         else:
             testpath = Path(self.root_dir) / self.test_dir
         self.dataset = BitouDataset(testpath, self.test_transforms, img_folder=self.img_folder, mask_folder=self.mask_folder,
-                                    img_ext=".jpg", mask_ext=self.mask_ext)
+                                    img_ext=self.img_ext, mask_ext=self.mask_ext)
 
     def _create_hidden_dataset(self):
         """
@@ -215,9 +215,13 @@ class TestDataModule(pl.LightningDataModule):
             # pad accordingly
             imshape = img.shape[:-1]
             pad_left, pad_right, pad_top, pad_bottom = get_padding(imshape, self.model_shape, self.halo)
+            pd_l_labels, pd_r_labels, pd_t_labels, pd_bt_labels = get_padding_labels(imshape, self.model_shape, self.halo)
+
+            #! this is where the error is - pad the mask as well , otherwise it will be too small for the overhang. Then go from halo + i*stride
             n_tot, n_h = get_tile_numbers(imshape, self.model_shape)
             # out_imshape = get_out_shape(n_tot, n_h, self.model_shape)
             padded = pad_image(img, pad_top, pad_left, pad_right, pad_bottom)
+            padded_labels = pad_image(mask, pd_t_labels, pd_l_labels, pd_r_labels, pd_bt_labels)
 
             # for the image, create image and subsequent labels to be evaluated against
             for k in tqdm(range(n_tot), desc="Window", leave=False):
@@ -228,7 +232,7 @@ class TestDataModule(pl.LightningDataModule):
                 # from the image, take the large window
                 window_im = padded[h_window : h_window + self.window_shape[0], w_window : w_window + self.window_shape[1]]
                 # from the labels, take the inside window - the halo
-                window_label = mask[h_window : h_window + self.model_shape[0], w_window : w_window + self.model_shape[1]]
+                window_label = padded_labels[h_window : h_window + self.model_shape[0], w_window : w_window + self.model_shape[1]]
                 # generate a new name
                 out_name = "_".join([imgname,str(k)])
                 write_image(hidden_img_dir, out_name, window_im, self.img_ext)

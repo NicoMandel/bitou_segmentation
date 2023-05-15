@@ -17,8 +17,10 @@ from torch import optim
 class Model(pl.LightningModule):
 
     def __init__(self, arch : str , encoder_name : str, encoder_weights : str,  in_channels : int, classes : int,       # model parameters
-                loss , lr : float, weight_decay : float,                                                                # task parameters
-                *args: Any, **kwargs: Any) -> None:
+                loss , lr : float, weight_decay : float,                                                               # task parameters
+                *args: Any,
+                halo : int = None,      # for inference
+                **kwargs: Any) -> None:
         super().__init__()
 
         # model-specific components
@@ -34,6 +36,9 @@ class Model(pl.LightningModule):
         self.loss = loss
         self.lr = lr
         self.weight_decay = weight_decay
+
+        # halo for testing inference
+        self.halo = halo
 
         # accuracy
         self.accuracy = torchmetrics.JaccardIndex(num_classes=self.classes)
@@ -138,8 +143,14 @@ class Model(pl.LightningModule):
         # similar to simple forward step
         pred = self._shared_step(x)
         pred_cl = self.get_labels(pred)
+
         # Accuracy
-        acc = self.accuracy(pred_cl, y)
+        #! check if this can be rewritten
+        if self.halo is not None:
+            pred_cl_edit =  pred_cl[..., self.halo : -self.halo, self.halo: -self.halo]
+            acc = self.accuracy(pred_cl_edit, y)
+        else:
+            acc = self.accuracy(pred_cl, y)
 
         self.log_dict({'acc/test': acc}, prog_bar=True, logger=True)
         return {'test_acc': acc, 'out': pred, 'in': x, 'truth': y}

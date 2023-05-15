@@ -154,6 +154,24 @@ def get_padding(img_shape : tuple, model_shape : tuple, halo : int = 256) -> tup
 
     return pad_left, pad_right, pad_top, pad_bottom
 
+def get_padding_labels(img_shape : tuple, model_shape : tuple, halo : int =256) -> tuple:
+    """
+        Function to get the padding of the labels file. Same format as sister function
+    """
+    model_h = model_shape[0]
+    model_w = model_shape[1]
+    h = img_shape[0]
+    w = img_shape[1]
+    
+    extra_w = model_w - (w % model_w)
+    extra_h = model_h - (h % model_h)
+    pad_left = 0
+    pad_top = 0
+    pad_right = extra_w
+    pad_bottom = extra_h
+    return pad_left, pad_right, pad_top, pad_bottom
+
+
 def get_window_dims(model_shape : tuple, halo : int = 256) -> tuple:
     """
         Function to get the dimensions of the window

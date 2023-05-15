@@ -4,8 +4,6 @@
      the transforms
     ! basic binary segmentation example using smp and albumentations: https://github.com/catalyst-team/catalyst/blob/v21.02rc0/examples/notebooks/segmentation-tutorial.ipynb
     ! tutorial from pytorch lightning themselves: https://pytorch-lightning.readthedocs.io/en/latest/notebooks/course_UvA-DL/04-inception-resnet-densenet.html?highlight=segmentation%20task
-    
-
 """
 
 import torch
@@ -33,7 +31,7 @@ def parse_args():
     parser.add_argument("--height", help="Height to be used for image preprocessing", default=256, type=int)
     
     # Dataloader settings
-    parser.add_argument("-b", "--batch", type=int, default=None, help="batch size to be used. Should not exceed memory, depends on Network")
+    parser.add_argument("-b", "--batch", type=int, default=8, help="batch size to be used. Should not exceed memory, depends on Network")
     parser.add_argument("--workers", type=int, default=4, help="Number of workers to be used for dataloading. Default 4. Recommended: 4 * (num_gpus)")
     parser.add_argument("--halo", type=int, default=128, help="Halo to be used around the image for creating a window for inference. Default is 128")
     
@@ -71,6 +69,7 @@ if __name__=="__main__":
     model = Model.load_from_checkpoint(
         args["model"], 
         )
+    model.halo = args["halo"]
 
     # inherent size and other parameters
     preprocess_params = model.get_preprocessing_parameters()
@@ -88,7 +87,7 @@ if __name__=="__main__":
         mask_folder="labels",
         test_transforms=test_tfs,
         batch_size=args["batch"], 
-        num_workers=args["workers"],
+        num_workers=args["workers"] if args["workers"] < 12 else 12,      # args["workers"]
         img_ext=args["image_ext"],
         mask_ext=args["mask_ext"],
         halo = args["halo"],
