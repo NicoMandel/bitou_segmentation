@@ -45,7 +45,7 @@ def parse_args():
     parser.add_argument("--weights", type=str, help="Encoder Weight pretraining to be used. Default is imagenet", default="imagenet")
 
     # Model size settings
-    parser.add_argument("--width", help="Width to be used for training", default=512, type=int)
+    parser.add_argument("--width", help="Width to be used for training", default=256, type=int)
     parser.add_argument("--height", help="Height to be used during training", default=None, type=int)
     parser.add_argument("--max-size", help="Maximum image size encountered (along the smaller dimension). \
                         Defaults to None. If None, will not use spatial Pyramid", default=None, type=int)
@@ -190,7 +190,7 @@ if __name__=="__main__":
     # ! losses: https://smp.readthedocs.io/en/latest/losses.html
     # See paper - focal loss focusses on hard examples - so that these become weighted higher during training
     # loss = sgm.losses.SoftBCEWithLogitsLoss(smooth_factor=None) # consider replacing smooth factor with 0 or 1
-    loss = sgm.losses.FocalLoss(loss_mode)
+    loss = sgm.losses.FocalLoss(loss_mode, alpha=0.2)
     # loss = sgm.losses.TverskyLoss(alpha=0.5, beta=0.5, mode=loss_mode)
     # Task parameters - depending on the training settings    
     lr = 1.0e-3
@@ -250,12 +250,16 @@ if __name__=="__main__":
         Classes: {}".format(
         int(datamodule.val_percentage *100), args["batch"], args["epochs"], args["classes"]
     ))
-    print("Cropping to ({})".format(shape)) if shape is not None else print("Using full sized images")
+    print("Cropping to {}".format(shape)) if shape is not None else print("Using full sized images")
     print(80*"=")
     # actual training step
     if args["freeze"]:
         model.freeze_encoder()
     trainer.fit(model, datamodule=datamodule)
+
+    model.halo = args["halo"]
+    # ! doubling model size for testing and inference
+    model_shape_test = tuple([2*shape[i] for i in range(len(shape))])
 
     # Loading the test datamodule
     test_dm = TestDataModule(
@@ -264,12 +268,13 @@ if __name__=="__main__":
         img_folder="images",
         mask_folder="labels",
         test_transforms=test_transforms,
-        batch_size=args["batch"], 
-        num_workers=args["workers"],
+        batch_size=int(args["batch"] / 2), 
+        num_workers=args["workers"] if args["workers"] < 6 else 6,      # args["workers"]
         img_ext=args["image_ext"],
         mask_ext=args["mask_ext"],
         halo = args["halo"],
-        model_shape=shape,      #! recommendation is to do testing and inference on larger model shape,
+        model_shape=model_shape_test,      #! recommendation is to do testing and inference on larger model shape,
+        create_hidden=True
         )
 
     # Test step
