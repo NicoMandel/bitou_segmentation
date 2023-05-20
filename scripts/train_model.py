@@ -278,7 +278,7 @@ if __name__=="__main__":
         )
 
     # Test step
-    trainer.test(model,datamodule=test_dm)
+    results = trainer.test(model,datamodule=test_dm)
 
     # Exporting the model
     if args["output"] is not None:

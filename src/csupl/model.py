@@ -161,8 +161,11 @@ class Model(pl.LightningModule):
         return out
 
     def __repr__(self):
-        return f"{self.model.name}-{self.encoder_weights}_{self.classes}"
-
+        try:
+            repr = f"{self.model.name}-{self.encoder_weights}_{self.classes}"
+        except AttributeError:
+            repr = f"{self.model._get_name()}-{self.encoder_weights}_{self.classes}"
+        return repr
     
 ##############################################
 # Secondary Model

@@ -102,4 +102,4 @@ if __name__=="__main__":
     )
     
     # Actual test step
-    trainer.test(model = model, datamodule = test_dm)
+    results = trainer.test(model = model, datamodule = test_dm)
